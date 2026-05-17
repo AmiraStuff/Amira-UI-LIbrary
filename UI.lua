@@ -49,6 +49,7 @@ local Library = {
     ChatLastTimestamp = 0,
     ChatProcessedIds = {},
     ChatMessages = {},
+    ChatSentMessages = {},
     StreamerMode = false,
     CustomUsername = "",
     CustomDisplayName = ""
@@ -150,12 +151,14 @@ local ThemePresets = {
 
 function Library:SendChatMessage(message)
     if not message or message == "" then return false end
+    local msgHash = message .. "_" .. Players.LocalPlayer.UserId .. "_" .. os.time()
     local success = pcall(function()
         local data = {
             username = tostring(GetSafeName()),
             message = tostring(message),
             userid = tostring(Players.LocalPlayer.UserId),
-            time = os.time()
+            time = os.time(),
+            msgHash = msgHash
         }
         if syn and syn.request then
             syn.request({Url = Library.ChatApiUrl, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)})
@@ -165,6 +168,9 @@ function Library:SendChatMessage(message)
             request({Url = Library.ChatApiUrl, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)})
         end
     end)
+    if success then
+        Library.ChatSentMessages[msgHash] = true
+    end
     return success
 end
 
@@ -177,7 +183,23 @@ function Library:PollChatMessages()
         if response and response.Body then return HttpService:JSONDecode(response.Body) end
         return {}
     end)
-    if success and result then return result.messages or result end
+    if success and result then
+        local msgs = result.messages or result
+        if type(msgs) == "table" then
+            -- Filter out messages that don't have an id or are already processed
+            local filtered = {}
+            for _, msg in pairs(msgs) do
+                if type(msg) == "table" and msg.message and msg.username then
+                    local msgId = msg.id or (msg.timestamp and tostring(msg.timestamp)) or (msg.message .. msg.username)
+                    if msgId and not Library.ChatProcessedIds[msgId] then
+                        Library.ChatProcessedIds[msgId] = true
+                        table.insert(filtered, msg)
+                    end
+                end
+            end
+            return filtered
+        end
+    end
     return {}
 end
 
@@ -188,11 +210,6 @@ function Library:RemoveFromChat()
         elseif http_request then http_request({Url = Library.ChatApiUrl .. "/leave", Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)})
         elseif request then request({Url = Library.ChatApiUrl .. "/leave", Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end
     end)
-end
-
-function Library:AddChatMessage(username, message)
-    table.insert(Library.ChatMessages, {username = username, message = message, time = os.date("%H:%M")})
-    if #Library.ChatMessages > 100 then table.remove(Library.ChatMessages, 1) end
 end
 
 local function ShowLoading(scriptName, done)
@@ -376,6 +393,12 @@ function Library:CreateWindow(options)
     local ChatSBtnCorner = Instance.new("UICorner"); ChatSBtnCorner.CornerRadius = UDim.new(0, 4); ChatSBtnCorner.Parent = ChatSendBtn
 
     local chatMessages = {}
+    local function ClearChatMessages()
+        for _, obj in pairs(ChatScroll:GetChildren()) do if obj:IsA("Frame") then obj:Destroy() end end
+        chatMessages = {}
+        ChatScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    end
+
     local function AddChatBubble(username, message, userid)
         local isLocal = username == GetSafeName()
         local Bubble = Instance.new("Frame"); Bubble.Parent = ChatScroll; Bubble.BackgroundTransparency = 1; Bubble.Size = UDim2.new(1, 0, 0, 42)
@@ -389,23 +412,41 @@ function Library:CreateWindow(options)
         ChatScroll.CanvasPosition = Vector2.new(0, ChatScroll.CanvasSize.Y.Offset)
     end
 
-    local function ClearChatMessages()
-        for _, obj in pairs(ChatScroll:GetChildren()) do if obj:IsA("Frame") then obj:Destroy() end end
-        chatMessages = {}
-        ChatScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    end
-
     local function SendChatMessage()
         local msg = ChatInput.Text; if msg == "" then return end
         local success = Library:SendChatMessage(msg)
-        if success then Library:AddChatMessage(GetSafeName(), msg); AddChatBubble(GetSafeName(), msg, Players.LocalPlayer.UserId); ChatInput.Text = ""
-        else Library:Notify("Chat", "Failed to send", 2) end
+        if success then
+            local safeName = GetSafeName()
+            Library:AddChatMessage(safeName, msg)
+            AddChatBubble(safeName, msg, Players.LocalPlayer.UserId)
+            ChatInput.Text = ""
+        else
+            Library:Notify("Chat", "Failed to send", 2)
+        end
     end
 
     ChatSendBtn.MouseButton1Click:Connect(SendChatMessage)
     ChatInput.FocusLost:Connect(function(enterPressed) if enterPressed then SendChatMessage() end end)
 
-    task.spawn(function() while true do if Library.ChatEnabled then local messages = Library:PollChatMessages(); OnlineCount.Text = tostring(#messages) .. " Online"; for _, msg in pairs(messages) do if msg.username ~= GetSafeName() then Library:AddChatMessage(msg.username, msg.message); AddChatBubble(msg.username, msg.message, msg.userid) end end end; task.wait(2) end end)
+    task.spawn(function()
+        while true do
+            if Library.ChatEnabled then
+                local messages = Library:PollChatMessages()
+                local uniqueUsers = {}
+                for _, msg in pairs(messages) do
+                    if msg.username ~= GetSafeName() then
+                        Library:AddChatMessage(msg.username, msg.message)
+                        AddChatBubble(msg.username, msg.message, msg.userid or 1)
+                    end
+                    if msg.username and not uniqueUsers[msg.username] then
+                        uniqueUsers[msg.username] = true
+                    end
+                end
+                OnlineCount.Text = tostring(#uniqueUsers) .. " Online"
+            end
+            task.wait(2)
+        end
+    end)
 
     local dragging, dragInput, dragStart, startPos
     local function updateDrag(input)
@@ -464,10 +505,10 @@ function Library:CreateWindow(options)
                 side = side or "Left"; local secIcon = iconAsset or "rbxassetid://6031068812"; local Parent = (side == "Left" and LeftCol or RightCol)
                 local SectionFrame = Instance.new("Frame"); SectionFrame.Parent = Parent; SectionFrame.BackgroundColor3 = Library.Config.SectionColor; SectionFrame.BackgroundTransparency = 0.05; SectionFrame.BorderSizePixel = 0; SectionFrame.Size = UDim2.new(1, 0, 0, 40); SectionFrame.ClipsDescendants = true; SectionFrame.ZIndex = 5
                 local SecCorner = Instance.new("UICorner"); SecCorner.CornerRadius = UDim.new(0, 6); SecCorner.Parent = SectionFrame
-                -- Icon in left corner
-                local SecIcon = Instance.new("ImageLabel"); SecIcon.Parent = SectionFrame; SecIcon.BackgroundTransparency = 1; SecIcon.Position = UDim2.new(0, 6, 0, 10); SecIcon.Size = UDim2.new(0, 14, 0, 14); SecIcon.Image = secIcon; SecIcon.ImageColor3 = Color3.fromRGB(160, 160, 160); SecIcon.ScaleType = Enum.ScaleType.Fit
-                -- Title closer to icon
-                local SecTitle = Instance.new("TextLabel"); SecTitle.Parent = SectionFrame; SecTitle.BackgroundTransparency = 1; SecTitle.Position = UDim2.new(0, 24, 0, 10); SecTitle.Size = UDim2.new(1, -36, 0, 18); SecTitle.Font = Enum.Font.GothamBold; SecTitle.Text = secName; SecTitle.TextColor3 = Color3.fromRGB(200, 200, 200); SecTitle.TextSize = 12; SecTitle.TextXAlignment = Enum.TextXAlignment.Left
+                -- Icon in left corner with good size
+                local SecIcon = Instance.new("ImageLabel"); SecIcon.Parent = SectionFrame; SecIcon.BackgroundTransparency = 1; SecIcon.Position = UDim2.new(0, 8, 0, 10); SecIcon.Size = UDim2.new(0, 16, 0, 16); SecIcon.Image = secIcon; SecIcon.ImageColor3 = Color3.fromRGB(160, 160, 160); SecIcon.ScaleType = Enum.ScaleType.Fit
+                -- Title pushed more to the right
+                local SecTitle = Instance.new("TextLabel"); SecTitle.Parent = SectionFrame; SecTitle.BackgroundTransparency = 1; SecTitle.Position = UDim2.new(0, 30, 0, 10); SecTitle.Size = UDim2.new(1, -42, 0, 18); SecTitle.Font = Enum.Font.GothamBold; SecTitle.Text = secName; SecTitle.TextColor3 = Color3.fromRGB(200, 200, 200); SecTitle.TextSize = 12; SecTitle.TextXAlignment = Enum.TextXAlignment.Left
                 local Container = Instance.new("Frame"); Container.Parent = SectionFrame; Container.BackgroundTransparency = 1; Container.Position = UDim2.new(0, 10, 0, 38); Container.Size = UDim2.new(1, -20, 0, 0)
                 local SecLayout = Instance.new("UIListLayout"); SecLayout.Parent = Container; SecLayout.SortOrder = Enum.SortOrder.LayoutOrder; SecLayout.Padding = UDim.new(0, 7)
                 SecLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() Container.Size = UDim2.new(1, -20, 0, SecLayout.AbsoluteContentSize.Y); SectionFrame.Size = UDim2.new(1, 0, 0, SecLayout.AbsoluteContentSize.Y + 50) end)
@@ -508,7 +549,6 @@ function Library:CreateWindow(options)
                     local MainBtn = Instance.new("TextButton"); MainBtn.Parent = DropContainer; MainBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20); MainBtn.Position = UDim2.new(0, 0, 0, 18); MainBtn.Size = UDim2.new(1, 0, 0, 24); MainBtn.AutoButtonColor = false; MainBtn.Text = ""
                     local MCorner = Instance.new("UICorner"); MCorner.CornerRadius = UDim.new(0, 3); MCorner.Parent = MainBtn
                     local SelectedText = Instance.new("TextLabel"); SelectedText.Parent = MainBtn; SelectedText.Position = UDim2.new(0, 8, 0, 0); SelectedText.Size = UDim2.new(1, -28, 1, 0); SelectedText.BackgroundTransparency = 1; SelectedText.Text = "..."; SelectedText.TextColor3 = Library.Config.SubTextColor; SelectedText.TextSize = 12; SelectedText.Font = Enum.Font.GothamMedium; SelectedText.TextXAlignment = Enum.TextXAlignment.Left
-                    -- Clear button on dropdown button
                     local ClearDropdownBtn = Instance.new("TextButton"); ClearDropdownBtn.Parent = MainBtn; ClearDropdownBtn.BackgroundTransparency = 1; ClearDropdownBtn.Position = UDim2.new(1, -22, 0, 0); ClearDropdownBtn.Size = UDim2.new(0, 18, 1, 0); ClearDropdownBtn.Font = Enum.Font.GothamBold; ClearDropdownBtn.Text = "x"; ClearDropdownBtn.TextColor3 = Color3.fromRGB(140, 140, 140); ClearDropdownBtn.TextSize = 10; ClearDropdownBtn.ZIndex = 5
                     local DropFrame = Instance.new("Frame"); DropFrame.Parent = Library.ScreenGui; DropFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 18); DropFrame.BorderSizePixel = 0; DropFrame.Visible = false; DropFrame.ZIndex = 200; DropFrame.ClipsDescendants = true
                     local DFCorner = Instance.new("UICorner"); DFCorner.CornerRadius = UDim.new(0, 5); DFCorner.Parent = DropFrame; local DFStroke = Instance.new("UIStroke"); DFStroke.Parent = DropFrame; DFStroke.Color = Color3.fromRGB(40, 40, 40); DFStroke.Thickness = 1
@@ -523,12 +563,7 @@ function Library:CreateWindow(options)
                         else local tw = Library:Tween(DropFrame, 0.2, {Size = UDim2.new(0, MainBtn.AbsoluteSize.X, 0, 0)}); tw.Completed:Wait(); DropFrame.Visible = false end
                     end
                     MainBtn.MouseButton1Click:Connect(ToggleDropdown)
-                    ClearDropdownBtn.MouseButton1Click:Connect(function()
-                        SelectedText.Text = "..."
-                        if flag then Library.Flags[flag] = nil end
-                        callback(nil)
-                        SearchInput.Text = ""
-                    end)
+                    ClearDropdownBtn.MouseButton1Click:Connect(function() SelectedText.Text = "..."; if flag then Library.Flags[flag] = nil end; callback(nil); SearchInput.Text = "" end)
                     local function Set(opt) SelectedText.Text = tostring(opt); if flag then Library.Flags[flag] = opt end; callback(opt) end
                     if flag then Library.Callbacks[flag] = Set end
                     local function Refresh(newList) for _, v in pairs(OptionBtns) do v.btn:Destroy() end; table.clear(OptionBtns); options = newList; for _, opt in pairs(options) do local btn = Instance.new("TextButton"); btn.Parent = Scroll; btn.Size = UDim2.new(1, 0, 0, 21); btn.BackgroundTransparency = 1; btn.Text = "  " .. tostring(opt); btn.TextColor3 = Color3.fromRGB(160, 160, 160); btn.TextSize = 11; btn.Font = Enum.Font.GothamMedium; btn.TextXAlignment = Enum.TextXAlignment.Left; btn.ZIndex = 201; btn.MouseButton1Click:Connect(function() Set(opt); ToggleDropdown() end); table.insert(OptionBtns, {btn = btn, text = tostring(opt)}) end; Scroll.CanvasSize = UDim2.new(0, 0, 0, #options * 23) end

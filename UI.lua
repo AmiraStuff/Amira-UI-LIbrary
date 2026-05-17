@@ -31,15 +31,16 @@ local Library = {
         UseThemeImage = false
     },
     Directory = "Amira",
-    DiscordInvite = "https://discord.gg/MGmF4zSMS6",
-    DiscordMembers = 200,
+    DiscordInvite = "",
+    DiscordMembers = 0,
     ScriptUpdates = {},
     HWID = "",
     SavedThemes = {},
     MainFrame = nil,
     TitleBox = nil,
     TabBox = nil,
-    ToggleBtn = nil
+    ToggleBtn = nil,
+    IsPremium = false
 }
 
 pcall(function() makefolder(Library.Directory) end)
@@ -100,17 +101,83 @@ local function GetViewportSize()
     return Vector2.new(1920, 1080)
 end
 
--- Helper to get text size safely
 local function GetTextWidth(text, fontSize, font)
     local success, result = pcall(function()
-        return TextService:GetTextSize(text, fontSize, font, Vector2.new(9999, 100))
+        return game:GetService("TextService"):GetTextSize(text, fontSize, font, Vector2.new(9999, 100))
     end)
     if success and result then
         return result.X
     end
-    -- Fallback calculation
     return #text * (fontSize * 0.6)
 end
+
+-- Theme Presets
+local ThemePresets = {
+    Dark = {
+        accent = {150, 150, 150},
+        bg = {10, 10, 10},
+        section = {16, 16, 16},
+        text = {240, 240, 240},
+        subtext = {160, 160, 160},
+        toggle = {150, 150, 150}
+    },
+    Dracula = {
+        accent = {189, 147, 249},
+        bg = {40, 42, 54},
+        section = {50, 52, 64},
+        text = {248, 248, 242},
+        subtext = {180, 180, 190},
+        toggle = {139, 233, 253}
+    },
+    Moon = {
+        accent = {130, 170, 255},
+        bg = {15, 18, 30},
+        section = {22, 25, 40},
+        text = {220, 230, 255},
+        subtext = {150, 160, 200},
+        toggle = {130, 170, 255}
+    },
+    Sunset = {
+        accent = {255, 140, 100},
+        bg = {20, 12, 10},
+        section = {28, 18, 14},
+        text = {255, 220, 200},
+        subtext = {200, 160, 140},
+        toggle = {255, 180, 120}
+    },
+    Ocean = {
+        accent = {80, 200, 200},
+        bg = {8, 15, 20},
+        section = {12, 22, 28},
+        text = {200, 240, 240},
+        subtext = {140, 180, 180},
+        toggle = {80, 220, 220}
+    },
+    Forest = {
+        accent = {100, 200, 100},
+        bg = {10, 16, 10},
+        section = {16, 24, 16},
+        text = {220, 240, 220},
+        subtext = {150, 180, 150},
+        toggle = {120, 220, 120}
+    },
+    Cherry = {
+        accent = {255, 100, 130},
+        bg = {18, 10, 12},
+        section = {26, 14, 18},
+        text = {255, 220, 230},
+        subtext = {200, 150, 160},
+        toggle = {255, 130, 150}
+    },
+    Midnight = {
+        accent = {100, 100, 255},
+        bg = {8, 8, 20},
+        section = {14, 14, 28},
+        text = {200, 200, 255},
+        subtext = {140, 140, 200},
+        toggle = {120, 120, 255}
+    }
+}
 
 -- Loading Screen
 local function ShowLoading(scriptName, done)
@@ -215,16 +282,9 @@ local function ShowLoading(scriptName, done)
     Plan.Position = UDim2.new(0, 0, 0, nameY + 22)
     Plan.Size = UDim2.new(1, 0, 0, math.clamp(boxHeight * 0.05, 14, 18))
     Plan.Font = Enum.Font.GothamMedium
-    Plan.Text = "Plan: Checking..."
+    Plan.Text = "Plan: " .. (Library.IsPremium and "Premium" or "Free")
     Plan.TextColor3 = Color3.fromRGB(150, 150, 150)
     Plan.TextSize = math.clamp(boxWidth * 0.04, 11, 13)
-    
-    task.spawn(function()
-        local s, r = pcall(function() return Players.LocalPlayer.MembershipType end)
-        if s then
-            Plan.Text = r == Enum.MembershipType.Premium and "Plan: Premium" or "Plan: Free"
-        end
-    end)
     
     task.wait(3)
     LGui:Destroy()
@@ -481,6 +541,17 @@ function Library:LoadTheme(name)
     if theme.themeImage then Library.Config.ThemeImage = theme.themeImage end
     if theme.useTheme ~= nil then Library.Config.UseThemeImage = theme.useTheme end
     Library:Notify("Theme", "Loaded: " .. name, 2)
+end
+
+function Library:ApplyThemePreset(presetName)
+    local preset = ThemePresets[presetName]
+    if not preset then return end
+    Library.Config.AccentColor = Color3.new(preset.accent[1]/255, preset.accent[2]/255, preset.accent[3]/255)
+    Library.Config.BackgroundColor = Color3.new(preset.bg[1]/255, preset.bg[2]/255, preset.bg[3]/255)
+    Library.Config.SectionColor = Color3.new(preset.section[1]/255, preset.section[2]/255, preset.section[3]/255)
+    Library.Config.TextColor = Color3.new(preset.text[1]/255, preset.text[2]/255, preset.text[3]/255)
+    Library.Config.SubTextColor = Color3.new(preset.subtext[1]/255, preset.subtext[2]/255, preset.subtext[3]/255)
+    Library.Config.OpenCloseColor = Color3.new(preset.toggle[1]/255, preset.toggle[2]/255, preset.toggle[3]/255)
 end
 
 -- Keybind System
@@ -820,50 +891,58 @@ function Library:CreateWindow(options)
     local TermHeader = Instance.new("Frame")
     TermHeader.Parent = Terminal
     TermHeader.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
-    TermHeader.Size = UDim2.new(1, 0, 0, 16)
+    TermHeader.Size = UDim2.new(1, 0, 0, 18)
     TermHeader.BorderSizePixel = 0
     
     local THC = Instance.new("UICorner")
     THC.CornerRadius = UDim.new(0, 6)
     THC.Parent = TermHeader
     
+    local TermIcon = Instance.new("ImageLabel")
+    TermIcon.Parent = TermHeader
+    TermIcon.BackgroundTransparency = 1
+    TermIcon.Position = UDim2.new(0, 8, 0.5, -7)
+    TermIcon.Size = UDim2.new(0, 14, 0, 14)
+    TermIcon.Image = "rbxassetid://84983817196455"
+    TermIcon.ScaleType = Enum.ScaleType.Fit
+    
     local TermTitle = Instance.new("TextLabel")
     TermTitle.Parent = TermHeader
     TermTitle.BackgroundTransparency = 1
-    TermTitle.Position = UDim2.new(0, 8, 0, 0)
-    TermTitle.Size = UDim2.new(0.5, 0, 1, 0)
+    TermTitle.Position = UDim2.new(0, 26, 0, 0)
+    TermTitle.Size = UDim2.new(0.4, 0, 1, 0)
     TermTitle.Font = Enum.Font.GothamBold
     TermTitle.Text = "Terminal"
-    TermTitle.TextColor3 = Color3.fromRGB(170, 170, 170)
+    TermTitle.TextColor3 = Color3.fromRGB(180, 180, 180)
     TermTitle.TextSize = 10
     TermTitle.TextXAlignment = Enum.TextXAlignment.Left
     
     local ClearBtn = Instance.new("TextButton")
     ClearBtn.Parent = TermHeader
     ClearBtn.BackgroundTransparency = 1
-    ClearBtn.Position = UDim2.new(1, -44, 0, 0)
-    ClearBtn.Size = UDim2.new(0, 18, 1, 0)
-    ClearBtn.Font = Enum.Font.GothamMedium
-    ClearBtn.Text = "clr"
-    ClearBtn.TextSize = 8
-    ClearBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+    ClearBtn.Position = UDim2.new(1, -50, 0, 0)
+    ClearBtn.Size = UDim2.new(0, 22, 1, 0)
+    ClearBtn.Font = Enum.Font.GothamBold
+    ClearBtn.Text = "x"
+    ClearBtn.TextSize = 10
+    ClearBtn.TextColor3 = Color3.fromRGB(160, 160, 160)
     
     local CopyBtn = Instance.new("TextButton")
     CopyBtn.Parent = TermHeader
     CopyBtn.BackgroundTransparency = 1
-    CopyBtn.Position = UDim2.new(1, -22, 0, 0)
-    CopyBtn.Size = UDim2.new(0, 18, 1, 0)
-    CopyBtn.Font = Enum.Font.GothamMedium
-    CopyBtn.Text = "cpy"
-    CopyBtn.TextSize = 8
-    CopyBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+    CopyBtn.Position = UDim2.new(1, -24, 0, 0)
+    CopyBtn.Size = UDim2.new(0, 22, 1, 0)
+    CopyBtn.Font = Enum.Font.GothamBold
+    CopyBtn.Text = "+"
+    CopyBtn.TextSize = 10
+    CopyBtn.TextColor3 = Color3.fromRGB(160, 160, 160)
     
     local TermScroll = Instance.new("ScrollingFrame")
     TermScroll.Parent = Terminal
     TermScroll.BackgroundTransparency = 1
     TermScroll.BorderSizePixel = 0
-    TermScroll.Position = UDim2.new(0, 0, 0, 16)
-    TermScroll.Size = UDim2.new(1, 0, 1, -16)
+    TermScroll.Position = UDim2.new(0, 0, 0, 18)
+    TermScroll.Size = UDim2.new(1, 0, 1, -18)
     TermScroll.ScrollBarThickness = 3
     TermScroll.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 60)
     TermScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -886,7 +965,7 @@ function Library:CreateWindow(options)
     local function AddTerminalLog(msg)
         table.insert(termLogs, os.date("[%H:%M:%S] ") .. msg)
         TermContent.Text = table.concat(termLogs, "\n")
-        TermScroll.CanvasSize = UDim2.new(0, 0, 0, math.max(TermContent.TextBounds.Y + 4, 48))
+        TermScroll.CanvasSize = UDim2.new(0, 0, 0, math.max(TermContent.TextBounds.Y + 4, 46))
         task.wait()
         TermScroll.CanvasPosition = Vector2.new(0, TermScroll.CanvasSize.Y.Offset)
     end
@@ -894,12 +973,12 @@ function Library:CreateWindow(options)
     ClearBtn.MouseButton1Click:Connect(function()
         termLogs = {}
         TermContent.Text = ""
-        TermScroll.CanvasSize = UDim2.new(0, 0, 0, 48)
+        TermScroll.CanvasSize = UDim2.new(0, 0, 0, 46)
     end)
     
     CopyBtn.MouseButton1Click:Connect(function()
         pcall(function() setclipboard(TermContent.Text) end)
-        Library:Notify("Terminal", "Copied to clipboard", 1.5)
+        Library:Notify("Terminal", "Copied!", 1.5)
     end)
     
     Library.Terminal = {AddLog = AddTerminalLog, Frame = Terminal}
@@ -987,6 +1066,7 @@ function Library:CreateWindow(options)
         SetUIVisibility(not Main.Visible)
     end)
 
+    -- Title Box (closer to UI)
     local TitleBox = Instance.new("Frame")
     TitleBox.Name = "TitleBox"
     TitleBox.Parent = ScreenGui
@@ -1039,6 +1119,7 @@ function Library:CreateWindow(options)
     TitleMainLabel:GetPropertyChangedSignal("TextBounds"):Connect(UpdateTitleBox)
     TitleSuffixLabel:GetPropertyChangedSignal("TextBounds"):Connect(UpdateTitleBox)
     
+    -- Tab Box (closer to UI, below title box)
     local TabBox = Instance.new("Frame")
     TabBox.Name = "TabBox"
     TabBox.Parent = ScreenGui
@@ -1075,10 +1156,11 @@ function Library:CreateWindow(options)
         local totalWidth = TabLayout.AbsoluteContentSize.X + 12
         local newWidth = math.max(totalWidth, 50)
         TabBox.Size = UDim2.new(0, newWidth, 0, 42)
-        if Main.Visible then
+        if Main then
             local mainAbs = Main.AbsolutePosition
             local mainSize = Main.AbsoluteSize
-            TabBox.Position = UDim2.new(0, mainAbs.X + mainSize.X / 2 - newWidth / 2, 0, mainAbs.Y - 52)
+            -- Position tab box right above UI with 6px gap, centered
+            TabBox.Position = UDim2.new(0, mainAbs.X + mainSize.X / 2 - newWidth / 2, 0, mainAbs.Y - 48)
         end
     end
     TabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateTabBoxSize)
@@ -1091,8 +1173,10 @@ function Library:CreateWindow(options)
         local mainAbs = Main.AbsolutePosition
         local mainSize = Main.AbsoluteSize
         
+        -- Title box: above UI with 10px gap, left aligned
         TitleBox.Position = UDim2.new(0, mainAbs.X + 8, 0, mainAbs.Y - 44)
-        TabBox.Position = UDim2.new(0, mainAbs.X + mainSize.X / 2 - TabBox.AbsoluteSize.X / 2, 0, mainAbs.Y - 52)
+        -- Tab box: above UI with 6px gap, centered (below title box)
+        TabBox.Position = UDim2.new(0, mainAbs.X + mainSize.X / 2 - TabBox.AbsoluteSize.X / 2, 0, mainAbs.Y - 48)
     end
     
     Header.InputBegan:Connect(function(input)
@@ -1136,7 +1220,6 @@ function Library:CreateWindow(options)
     function Window:CreateTab(name, layoutOrder, iconAsset)
         local tabIcon = iconAsset or "rbxassetid://6031068812"
         
-        -- Safe text width calculation
         local nameWidth = GetTextWidth(name, 13, Enum.Font.GothamBold)
         local buttonWidth = math.max(70, 32 + nameWidth + 12)
         
@@ -1161,7 +1244,7 @@ function Library:CreateWindow(options)
         TabIcon.Position = UDim2.new(0, 8, 0.5, -10)
         TabIcon.Size = UDim2.new(0, 20, 0, 20)
         TabIcon.Image = tabIcon
-        TabIcon.ImageColor3 = Color3.fromRGB(240, 240, 240)
+        TabIcon.ImageColor3 = Color3.fromRGB(100, 100, 100)
         TabIcon.ScaleType = Enum.ScaleType.Fit
         TabIcon.ZIndex = 102
 
@@ -1910,39 +1993,48 @@ function Library:CreateWindow(options)
     
     local PlayerSec = DashSub:CreateSection("Player", "Left")
     local PF = Instance.new("Frame")
-    PF.Parent = PlayerSec.Container; PF.BackgroundTransparency = 1; PF.Size = UDim2.new(1, 0, 0, 55)
+    PF.Parent = PlayerSec.Container; PF.BackgroundTransparency = 1; PF.Size = UDim2.new(1, 0, 0, 60)
     
     local PFP = Instance.new("ImageLabel")
-    PFP.Parent = PF; PFP.BackgroundTransparency = 1; PFP.Size = UDim2.new(0, 40, 0, 40)
+    PFP.Parent = PF; PFP.BackgroundTransparency = 1; PFP.Size = UDim2.new(0, 44, 0, 44)
     PFP.Image = Players:GetUserThumbnailAsync(Players.LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
     PFP.ScaleType = Enum.ScaleType.Fit
     local PFPc = Instance.new("UICorner"); PFPc.CornerRadius = UDim.new(1, 0); PFPc.Parent = PFP
+    local PFPstroke = Instance.new("UIStroke"); PFPstroke.Parent = PFP; PFPstroke.Color = Color3.fromRGB(60, 60, 60); PFPstroke.Thickness = 1
     
     local UN = Instance.new("TextLabel")
-    UN.Parent = PF; UN.BackgroundTransparency = 1; UN.Position = UDim2.new(0, 48, 0, 0)
-    UN.Size = UDim2.new(1, -48, 0, 15); UN.Font = Enum.Font.GothamBold
-    UN.Text = Players.LocalPlayer.Name; UN.TextColor3 = Color3.fromRGB(240, 240, 240); UN.TextSize = 12; UN.TextXAlignment = Enum.TextXAlignment.Left
+    UN.Parent = PF; UN.BackgroundTransparency = 1; UN.Position = UDim2.new(0, 54, 0, 2)
+    UN.Size = UDim2.new(1, -54, 0, 16); UN.Font = Enum.Font.GothamBold
+    UN.Text = Players.LocalPlayer.Name; UN.TextColor3 = Color3.fromRGB(240, 240, 240); UN.TextSize = 13; UN.TextXAlignment = Enum.TextXAlignment.Left
     
     local DN = Instance.new("TextLabel")
-    DN.Parent = PF; DN.BackgroundTransparency = 1; DN.Position = UDim2.new(0, 48, 0, 16)
-    DN.Size = UDim2.new(1, -48, 0, 13); DN.Font = Enum.Font.GothamMedium
-    DN.Text = "@" .. Players.LocalPlayer.DisplayName; DN.TextColor3 = Color3.fromRGB(150, 150, 150); DN.TextSize = 10; DN.TextXAlignment = Enum.TextXAlignment.Left
+    DN.Parent = PF; DN.BackgroundTransparency = 1; DN.Position = UDim2.new(0, 54, 0, 20)
+    DN.Size = UDim2.new(1, -54, 0, 14); DN.Font = Enum.Font.GothamMedium
+    DN.Text = "@" .. Players.LocalPlayer.DisplayName; DN.TextColor3 = Color3.fromRGB(150, 150, 150); DN.TextSize = 11; DN.TextXAlignment = Enum.TextXAlignment.Left
     
     local UID = Instance.new("TextLabel")
-    UID.Parent = PF; UID.BackgroundTransparency = 1; UID.Position = UDim2.new(0, 48, 0, 30)
-    UID.Size = UDim2.new(1, -48, 0, 13); UID.Font = Enum.Font.GothamMedium
+    UID.Parent = PF; UID.BackgroundTransparency = 1; UID.Position = UDim2.new(0, 54, 0, 36)
+    UID.Size = UDim2.new(1, -54, 0, 13); UID.Font = Enum.Font.GothamMedium
     UID.Text = "ID: " .. Players.LocalPlayer.UserId; UID.TextColor3 = Color3.fromRGB(130, 130, 130); UID.TextSize = 10; UID.TextXAlignment = Enum.TextXAlignment.Left
     
-    PlayerSec.Container.Size = UDim2.new(1, -24, 0, PlayerSec.Container.Size.Y.Offset + 55)
+    local PremBadge = Instance.new("TextLabel")
+    PremBadge.Parent = PF; PremBadge.BackgroundTransparency = 1; PremBadge.Position = UDim2.new(0, 54, 0, 48)
+    PremBadge.Size = UDim2.new(1, -54, 0, 13); PremBadge.Font = Enum.Font.GothamBold
+    PremBadge.Text = Library.IsPremium and "PREMIUM" or "FREE"
+    PremBadge.TextColor3 = Library.IsPremium and Color3.fromRGB(255, 215, 0) or Color3.fromRGB(150, 150, 150)
+    PremBadge.TextSize = 10; PremBadge.TextXAlignment = Enum.TextXAlignment.Left
+    
+    PlayerSec.Container.Size = UDim2.new(1, -24, 0, PlayerSec.Container.Size.Y.Offset + 60)
     
     local GameSec = DashSub:CreateSection("Game", "Left")
     local GF = Instance.new("Frame")
-    GF.Parent = GameSec.Container; GF.BackgroundTransparency = 1; GF.Size = UDim2.new(1, 0, 0, 50)
+    GF.Parent = GameSec.Container; GF.BackgroundTransparency = 1; GF.Size = UDim2.new(1, 0, 0, 55)
     
     local GI = Instance.new("ImageLabel")
-    GI.Parent = GF; GI.BackgroundTransparency = 1; GI.Size = UDim2.new(0, 36, 0, 36)
+    GI.Parent = GF; GI.BackgroundTransparency = 1; GI.Size = UDim2.new(0, 40, 0, 40)
     GI.ScaleType = Enum.ScaleType.Fit
-    local GIc = Instance.new("UICorner"); GIc.CornerRadius = UDim.new(0, 5); GIc.Parent = GI
+    local GIc = Instance.new("UICorner"); GIc.CornerRadius = UDim.new(0, 6); GIc.Parent = GI
+    local GIstroke = Instance.new("UIStroke"); GIstroke.Parent = GI; GIstroke.Color = Color3.fromRGB(50, 50, 50); GIstroke.Thickness = 1
     
     task.spawn(function()
         pcall(function()
@@ -1951,45 +2043,40 @@ function Library:CreateWindow(options)
     end)
     
     local GN = Instance.new("TextLabel")
-    GN.Parent = GF; GN.BackgroundTransparency = 1; GN.Position = UDim2.new(0, 44, 0, 0)
-    GN.Size = UDim2.new(1, -44, 0, 14); GN.Font = Enum.Font.GothamBold
-    GN.Text = "Game: " .. game.PlaceId; GN.TextColor3 = Color3.fromRGB(220, 220, 220); GN.TextSize = 11; GN.TextXAlignment = Enum.TextXAlignment.Left
+    GN.Parent = GF; GN.BackgroundTransparency = 1; GN.Position = UDim2.new(0, 50, 0, 0)
+    GN.Size = UDim2.new(1, -50, 0, 16); GN.Font = Enum.Font.GothamBold
+    GN.Text = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name; GN.TextColor3 = Color3.fromRGB(220, 220, 220); GN.TextSize = 12; GN.TextXAlignment = Enum.TextXAlignment.Left; GN.TextTruncate = Enum.TextTruncate.AtEnd
     
     local GID = Instance.new("TextLabel")
-    GID.Parent = GF; GID.BackgroundTransparency = 1; GID.Position = UDim2.new(0, 44, 0, 16)
-    GID.Size = UDim2.new(1, -44, 0, 13); GID.Font = Enum.Font.GothamMedium
+    GID.Parent = GF; GID.BackgroundTransparency = 1; GID.Position = UDim2.new(0, 50, 0, 18)
+    GID.Size = UDim2.new(1, -50, 0, 14); GID.Font = Enum.Font.GothamMedium
     GID.Text = "Place: " .. game.PlaceId; GID.TextColor3 = Color3.fromRGB(130, 130, 130); GID.TextSize = 10; GID.TextXAlignment = Enum.TextXAlignment.Left
     
     local PCnt = Instance.new("TextLabel")
-    PCnt.Parent = GF; PCnt.BackgroundTransparency = 1; PCnt.Position = UDim2.new(0, 44, 0, 29)
-    PCnt.Size = UDim2.new(1, -44, 0, 13); PCnt.Font = Enum.Font.GothamMedium
+    PCnt.Parent = GF; PCnt.BackgroundTransparency = 1; PCnt.Position = UDim2.new(0, 50, 0, 33)
+    PCnt.Size = UDim2.new(1, -50, 0, 14); PCnt.Font = Enum.Font.GothamMedium
     PCnt.Text = "Players: " .. #Players:GetPlayers(); PCnt.TextColor3 = Color3.fromRGB(130, 130, 130); PCnt.TextSize = 10; PCnt.TextXAlignment = Enum.TextXAlignment.Left
     
-    GameSec.Container.Size = UDim2.new(1, -24, 0, GameSec.Container.Size.Y.Offset + 50)
+    GameSec.Container.Size = UDim2.new(1, -24, 0, GameSec.Container.Size.Y.Offset + 55)
     
     local StatusSec = DashSub:CreateSection("Status", "Right")
     local SF = Instance.new("Frame")
-    SF.Parent = StatusSec.Container; SF.BackgroundTransparency = 1; SF.Size = UDim2.new(1, 0, 0, 45)
-    
-    local Prem = Instance.new("TextLabel")
-    Prem.Parent = SF; Prem.BackgroundTransparency = 1; Prem.Size = UDim2.new(1, 0, 0, 14)
-    Prem.Font = Enum.Font.GothamMedium; Prem.Text = "Premium: Checking..."; Prem.TextColor3 = Color3.fromRGB(150, 150, 150); Prem.TextSize = 11; Prem.TextXAlignment = Enum.TextXAlignment.Left
+    SF.Parent = StatusSec.Container; SF.BackgroundTransparency = 1; SF.Size = UDim2.new(1, 0, 0, 40)
     
     local Dev = Instance.new("TextLabel")
-    Dev.Parent = SF; Dev.BackgroundTransparency = 1; Dev.Position = UDim2.new(0, 0, 0, 16)
-    Dev.Size = UDim2.new(1, 0, 0, 14); Dev.Font = Enum.Font.GothamMedium
-    Dev.Text = "Device: " .. GetDevice(); Dev.TextColor3 = Color3.fromRGB(150, 150, 150); Dev.TextSize = 11; Dev.TextXAlignment = Enum.TextXAlignment.Left
+    Dev.Parent = SF; Dev.BackgroundTransparency = 1; Dev.Size = UDim2.new(1, 0, 0, 14)
+    Dev.Font = Enum.Font.GothamMedium; Dev.Text = "Device: " .. GetDevice(); Dev.TextColor3 = Color3.fromRGB(150, 150, 150); Dev.TextSize = 11; Dev.TextXAlignment = Enum.TextXAlignment.Left
     
-    task.spawn(function()
-        local s, r = pcall(function() return Players.LocalPlayer.MembershipType end)
-        if s then Prem.Text = "Premium: " .. (r == Enum.MembershipType.Premium and "Yes" or "No") end
-    end)
+    local Fps = Instance.new("TextLabel")
+    Fps.Parent = SF; Fps.BackgroundTransparency = 1; Fps.Position = UDim2.new(0, 0, 0, 16)
+    Fps.Size = UDim2.new(1, 0, 0, 14); Fps.Font = Enum.Font.GothamMedium
+    Fps.Text = "FPS: " .. GetFPS(); Fps.TextColor3 = Color3.fromRGB(150, 150, 150); Fps.TextSize = 11; Fps.TextXAlignment = Enum.TextXAlignment.Left
     
-    StatusSec.Container.Size = UDim2.new(1, -24, 0, StatusSec.Container.Size.Y.Offset + 45)
+    StatusSec.Container.Size = UDim2.new(1, -24, 0, StatusSec.Container.Size.Y.Offset + 40)
     
     local FriendsSec = DashSub:CreateSection("Friends", "Right")
     local FF = Instance.new("Frame")
-    FF.Parent = FriendsSec.Container; FF.BackgroundTransparency = 1; FF.Size = UDim2.new(1, 0, 0, 40)
+    FF.Parent = FriendsSec.Container; FF.BackgroundTransparency = 1; FF.Size = UDim2.new(1, 0, 0, 35)
     
     local TF = Instance.new("TextLabel")
     TF.Parent = FF; TF.BackgroundTransparency = 1; TF.Size = UDim2.new(1, 0, 0, 14)
@@ -2010,22 +2097,26 @@ function Library:CreateWindow(options)
         end
     end)
     
-    FriendsSec.Container.Size = UDim2.new(1, -24, 0, FriendsSec.Container.Size.Y.Offset + 40)
+    FriendsSec.Container.Size = UDim2.new(1, -24, 0, FriendsSec.Container.Size.Y.Offset + 35)
     
     local DiscordSec = DashSub:CreateSection("Discord", "Left")
     local DF = Instance.new("Frame")
-    DF.Parent = DiscordSec.Container; DF.BackgroundTransparency = 1; DF.Size = UDim2.new(1, 0, 0, 42)
+    DF.Parent = DiscordSec.Container; DF.BackgroundTransparency = 1; DF.Size = UDim2.new(1, 0, 0, 45)
+    
+    local DMIcon = Instance.new("ImageLabel")
+    DMIcon.Parent = DF; DMIcon.BackgroundTransparency = 1; DMIcon.Position = UDim2.new(0, 0, 0.5, -10)
+    DMIcon.Size = UDim2.new(0, 20, 0, 20); DMIcon.Image = "rbxassetid://84983817196455"; DMIcon.ScaleType = Enum.ScaleType.Fit
     
     local DM = Instance.new("TextLabel")
-    DM.Parent = DF; DM.BackgroundTransparency = 1; DM.Position = UDim2.new(0, 0, 0, 4)
-    DM.Size = UDim2.new(1, 0, 0, 14); DM.Font = Enum.Font.GothamMedium
-    DM.Text = "Members: " .. Library.DiscordMembers; DM.TextColor3 = Color3.fromRGB(150, 150, 150); DM.TextSize = 11; DM.TextXAlignment = Enum.TextXAlignment.Left
+    DM.Parent = DF; DM.BackgroundTransparency = 1; DM.Position = UDim2.new(0, 26, 0, 4)
+    DM.Size = UDim2.new(1, -26, 0, 14); DM.Font = Enum.Font.GothamMedium
+    DM.Text = Library.DiscordMembers > 0 and "Members: " .. Library.DiscordMembers or ""; DM.TextColor3 = Color3.fromRGB(150, 150, 150); DM.TextSize = 11; DM.TextXAlignment = Enum.TextXAlignment.Left
     
     local DBtn = Instance.new("TextButton")
-    DBtn.Parent = DF; DBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35); DBtn.BorderSizePixel = 0
-    DBtn.Position = UDim2.new(0, 0, 0, 22); DBtn.Size = UDim2.new(0, 105, 0, 20)
-    DBtn.Font = Enum.Font.GothamBold; DBtn.Text = "Join Discord"; DBtn.TextColor3 = Color3.fromRGB(220, 220, 220); DBtn.TextSize = 10; DBtn.AutoButtonColor = false
-    local DBtnC = Instance.new("UICorner"); DBtnC.CornerRadius = UDim.new(0, 4); DBtnC.Parent = DBtn
+    DBtn.Parent = DF; DBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242); DBtn.BorderSizePixel = 0
+    DBtn.Position = UDim2.new(0, 0, 0, 24); DBtn.Size = UDim2.new(0, 120, 0, 22)
+    DBtn.Font = Enum.Font.GothamBold; DBtn.Text = "Join Discord"; DBtn.TextColor3 = Color3.fromRGB(255, 255, 255); DBtn.TextSize = 10; DBtn.AutoButtonColor = false
+    local DBtnC = Instance.new("UICorner"); DBtnC.CornerRadius = UDim.new(0, 5); DBtnC.Parent = DBtn
     
     DBtn.MouseButton1Click:Connect(function()
         if Library.DiscordInvite ~= "" then
@@ -2034,7 +2125,7 @@ function Library:CreateWindow(options)
         end
     end)
     
-    DiscordSec.Container.Size = UDim2.new(1, -24, 0, DiscordSec.Container.Size.Y.Offset + 42)
+    DiscordSec.Container.Size = UDim2.new(1, -24, 0, DiscordSec.Container.Size.Y.Offset + 45)
     
     local UpdatesSec = DashSub:CreateSection("Updates", "Right")
     local UF = Instance.new("Frame")
@@ -2042,7 +2133,7 @@ function Library:CreateWindow(options)
     
     local UL = Instance.new("TextLabel")
     UL.Parent = UF; UL.BackgroundTransparency = 1; UL.Size = UDim2.new(1, 0, 0, 0)
-    UL.Font = Enum.Font.GothamMedium; UL.Text = "No updates yet"; UL.TextColor3 = Color3.fromRGB(130, 130, 130); UL.TextSize = 10; UL.TextXAlignment = Enum.TextXAlignment.Left; UL.TextWrapped = true; UL.AutomaticSize = Enum.AutomaticSize.Y
+    UL.Font = Enum.Font.GothamMedium; UL.Text = #Library.ScriptUpdates > 0 and table.concat(Library.ScriptUpdates, "\n") or "No updates yet"; UL.TextColor3 = Color3.fromRGB(130, 130, 130); UL.TextSize = 10; UL.TextXAlignment = Enum.TextXAlignment.Left; UL.TextWrapped = true; UL.AutomaticSize = Enum.AutomaticSize.Y
     
     UL:GetPropertyChangedSignal("TextBounds"):Connect(function()
         UF.Size = UDim2.new(1, 0, 0, UL.TextBounds.Y)
@@ -2081,6 +2172,20 @@ function Library:CreateWindow(options)
         if name ~= "" then Library:LoadConfig(name) end
     end)
     
+    -- Theme presets dropdown
+    local presetNames = {}
+    for name, _ in pairs(ThemePresets) do
+        table.insert(presetNames, name)
+    end
+    local ThemePresetDrop = ThemeSec:CreateDropdown("Presets", presetNames, {}, function(selected)
+        Library:ApplyThemePreset(selected)
+        -- Update toggle button colors
+        Toggle.BackgroundColor3 = Library.Config.OpenCloseColor
+        TogS.Color = Library.Config.OpenCloseColor
+        -- Update main bg
+        Main.BackgroundColor3 = Library.Config.BackgroundColor
+    end)
+    
     local ThemeToggle = ThemeSec:CreateToggle("Image BG", false, {Flag = "use_theme"}, function(val)
         Library.Config.UseThemeImage = val
         ThemeBg.Visible = val
@@ -2094,7 +2199,7 @@ function Library:CreateWindow(options)
     end)
     
     local themeList = Library.SavedThemes
-    local ThemeDrop = ThemeSec:CreateDropdown("Themes", #themeList > 0 and themeList or {"No themes"}, {}, function(selected)
+    local ThemeDrop = ThemeSec:CreateDropdown("Saved Themes", #themeList > 0 and themeList or {"No themes"}, {}, function(selected)
         if selected ~= "No themes" then Library:LoadTheme(selected) end
     end)
     
@@ -2109,7 +2214,8 @@ function Library:CreateWindow(options)
         if selected ~= "" and selected ~= "No themes" then Library:LoadTheme(selected) end
     end)
     
-    local ToggleColor = ThemeSec:CreateColorPicker("Toggle Color", Library.Config.OpenCloseColor, {Flag = "toggle_color"}, function(color)
+    -- Toggle color picker
+    local ToggleColorPicker = ThemeSec:CreateColorPicker("Toggle Color", Library.Config.OpenCloseColor, {Flag = "toggle_color"}, function(color)
         Library.Config.OpenCloseColor = color
         Toggle.BackgroundColor3 = color
         TogS.Color = color
@@ -2170,8 +2276,10 @@ function Library:CreateWindow(options)
     task.wait(0.1)
     local mainAbs = Main.AbsolutePosition
     local mainSize = Main.AbsoluteSize
+    -- Title box: 10px above UI, left aligned
     TitleBox.Position = UDim2.new(0, mainAbs.X + 8, 0, mainAbs.Y - 44)
-    TabBox.Position = UDim2.new(0, mainAbs.X + mainSize.X / 2 - TabBox.AbsoluteSize.X / 2, 0, mainAbs.Y - 52)
+    -- Tab box: 6px above UI, centered
+    TabBox.Position = UDim2.new(0, mainAbs.X + mainSize.X / 2 - TabBox.AbsoluteSize.X / 2, 0, mainAbs.Y - 48)
     UpdateTabBoxSize()
     
     task.wait(0.3)

@@ -92,7 +92,6 @@ local function GetFPS()
     return fps
 end
 
--- Get viewport size for responsive design
 local function GetViewportSize()
     local camera = workspace.CurrentCamera
     if camera then
@@ -101,7 +100,19 @@ local function GetViewportSize()
     return Vector2.new(1920, 1080)
 end
 
--- Loading Screen (FULLY CENTERED, NO DARK OVERLAY)
+-- Helper to get text size safely
+local function GetTextWidth(text, fontSize, font)
+    local success, result = pcall(function()
+        return TextService:GetTextSize(text, fontSize, font, Vector2.new(9999, 100))
+    end)
+    if success and result then
+        return result.X
+    end
+    -- Fallback calculation
+    return #text * (fontSize * 0.6)
+end
+
+-- Loading Screen
 local function ShowLoading(scriptName, done)
     local LGui = Instance.new("ScreenGui")
     LGui.Name = "AmiraLoading"
@@ -118,7 +129,6 @@ local function ShowLoading(scriptName, done)
     Box.BackgroundColor3 = Color3.fromRGB(16, 16, 16)
     Box.Position = UDim2.new(0.5, -boxWidth/2, 0.5, -boxHeight/2)
     Box.Size = UDim2.new(0, boxWidth, 0, boxHeight)
-    Box.AnchorPoint = Vector2.new(0, 0)
     Box.BorderSizePixel = 0
     
     local BC = Instance.new("UICorner")
@@ -267,7 +277,6 @@ Library.Watermark = WMText
 Library.WatermarkVisible = true
 Library.WatermarkBox = WMBox
 
--- Watermark dragging
 local wmDragging, wmStart, wmStartPos
 WMBox.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -337,10 +346,6 @@ function Library:Notify(title, desc, time)
     Bar.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
     Bar.Size = UDim2.new(0, 3, 1, 0)
     
-    local BarC = Instance.new("UICorner")
-    BarC.CornerRadius = UDim.new(0, 8)
-    BarC.Parent = Bar
-    
     local TL = Instance.new("TextLabel")
     TL.Parent = Main
     TL.BackgroundTransparency = 1
@@ -376,7 +381,6 @@ function Library:Notify(title, desc, time)
     CB.TextSize = 12
 
     local targetHeight = 24 + DL.TextBounds.Y + 14
-    Main.Size = UDim2.new(0, 290, 0, 0)
     Library:Tween(Main, 0.25, {Size = UDim2.new(0, 290, 0, targetHeight)})
     
     task.spawn(function()
@@ -466,10 +470,7 @@ end
 
 function Library:LoadTheme(name)
     local path = Library.Directory .. "/themes/" .. name .. ".json"
-    if not isfile(path) then
-        Library:Notify("Theme", "Not found: " .. name, 2)
-        return
-    end
+    if not isfile(path) then return end
     local theme = HttpService:JSONDecode(readfile(path))
     if theme.accent then Library.Config.AccentColor = Color3.new(theme.accent[1], theme.accent[2], theme.accent[3]) end
     if theme.bg then Library.Config.BackgroundColor = Color3.new(theme.bg[1], theme.bg[2], theme.bg[3]) end
@@ -718,7 +719,6 @@ function Library:CreateWindow(options)
     ScreenGui.IgnoreGuiInset = true
     Library.ScreenGui = ScreenGui
 
-    -- Main UI
     local viewport = GetViewportSize()
     local mainWidth = math.clamp(viewport.X * 0.5, 500, 720)
     local mainHeight = math.clamp(viewport.Y * 0.65, 400, 540)
@@ -737,7 +737,6 @@ function Library:CreateWindow(options)
     UIC.CornerRadius = UDim.new(0, 10)
     UIC.Parent = Main
 
-    -- Theme Image
     local ThemeBg = Instance.new("ImageLabel")
     ThemeBg.Parent = Main
     ThemeBg.BackgroundTransparency = 1
@@ -747,7 +746,6 @@ function Library:CreateWindow(options)
     ThemeBg.ImageTransparency = 0.88
     ThemeBg.ZIndex = 0
 
-    -- Header
     local Header = Instance.new("Frame")
     Header.Parent = Main
     Header.BackgroundTransparency = 1
@@ -784,7 +782,6 @@ function Library:CreateWindow(options)
     Minimize.TextColor3 = Color3.fromRGB(200, 200, 200)
     Minimize.TextSize = 14
 
-    -- Sub-Tabs Area
     local SubTabArea = Instance.new("Frame")
     SubTabArea.Parent = Main
     SubTabArea.BackgroundTransparency = 1
@@ -797,14 +794,12 @@ function Library:CreateWindow(options)
     SubTabList.SortOrder = Enum.SortOrder.LayoutOrder
     SubTabList.Padding = UDim.new(0, 6)
 
-    -- Content Area
     local Content = Instance.new("Frame")
     Content.Parent = Main
     Content.BackgroundTransparency = 1
     Content.Position = UDim2.new(0, 12, 0, 60)
     Content.Size = UDim2.new(1, -24, 1, -145)
 
-    -- Terminal
     local Terminal = Instance.new("Frame")
     Terminal.Parent = Main
     Terminal.BackgroundColor3 = Color3.fromRGB(11, 11, 11)
@@ -907,9 +902,8 @@ function Library:CreateWindow(options)
         Library:Notify("Terminal", "Copied to clipboard", 1.5)
     end)
     
-    Library.Terminal = {AddLog = AddTerminalLog, Frame = Terminal, SetVisible = function(v) Terminal.Visible = v end}
+    Library.Terminal = {AddLog = AddTerminalLog, Frame = Terminal}
 
-    -- Footer
     local LFooter = Instance.new("TextLabel")
     LFooter.Parent = Main
     LFooter.BackgroundTransparency = 1
@@ -932,7 +926,6 @@ function Library:CreateWindow(options)
     RFooter.TextSize = 9
     RFooter.TextXAlignment = Enum.TextXAlignment.Right
 
-    -- Toggle Button
     local Toggle = Instance.new("ImageButton")
     Toggle.Parent = ScreenGui
     Toggle.BackgroundColor3 = Library.Config.OpenCloseColor
@@ -953,7 +946,6 @@ function Library:CreateWindow(options)
     TogS.Color = Color3.fromRGB(80, 80, 80)
     TogS.Thickness = 2
 
-    -- Global visibility function
     local function SetUIVisibility(visible)
         Main.Visible = visible
         if Library.TitleBox then
@@ -964,7 +956,6 @@ function Library:CreateWindow(options)
         end
     end
 
-    -- Toggle drag/click
     local togDragging, togStart, togStartPos, togMoved
     Toggle.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -996,7 +987,6 @@ function Library:CreateWindow(options)
         SetUIVisibility(not Main.Visible)
     end)
 
-    -- Title Box
     local TitleBox = Instance.new("Frame")
     TitleBox.Name = "TitleBox"
     TitleBox.Parent = ScreenGui
@@ -1034,15 +1024,11 @@ function Library:CreateWindow(options)
     TitleSuffixLabel.Position = UDim2.new(0, 14, 0, 0)
     TitleSuffixLabel.Size = UDim2.new(0, 0, 1, 0)
     TitleSuffixLabel.Font = Enum.Font.GothamMedium
-    TitleSuffixLabel.Text = ""
+    TitleSuffixLabel.Text = windowSuffix ~= "" and " " .. windowSuffix or ""
     TitleSuffixLabel.TextColor3 = Color3.fromRGB(140, 140, 140)
     TitleSuffixLabel.TextSize = 13
     TitleSuffixLabel.TextXAlignment = Enum.TextXAlignment.Left
     TitleSuffixLabel.AutomaticSize = Enum.AutomaticSize.X
-    
-    if windowSuffix ~= "" then
-        TitleSuffixLabel.Text = " " .. windowSuffix
-    end
     
     local function UpdateTitleBox()
         TitleMainLabel.Position = UDim2.new(0, 14, 0, 0)
@@ -1053,13 +1039,12 @@ function Library:CreateWindow(options)
     TitleMainLabel:GetPropertyChangedSignal("TextBounds"):Connect(UpdateTitleBox)
     TitleSuffixLabel:GetPropertyChangedSignal("TextBounds"):Connect(UpdateTitleBox)
     
-    -- Tab Box (BIGGER - names ALWAYS visible)
     local TabBox = Instance.new("Frame")
     TabBox.Name = "TabBox"
     TabBox.Parent = ScreenGui
     TabBox.BackgroundColor3 = Color3.fromRGB(16, 16, 16)
     TabBox.BackgroundTransparency = 0.06
-    TabBox.Size = UDim2.new(0, 44, 0, 42)
+    TabBox.Size = UDim2.new(0, 50, 0, 42)
     TabBox.BorderSizePixel = 0
     TabBox.ZIndex = 100
     Library.TabBox = TabBox
@@ -1090,8 +1075,7 @@ function Library:CreateWindow(options)
         local totalWidth = TabLayout.AbsoluteContentSize.X + 12
         local newWidth = math.max(totalWidth, 50)
         TabBox.Size = UDim2.new(0, newWidth, 0, 42)
-        -- Reposition centered above UI
-        if Main.Visible or true then
+        if Main.Visible then
             local mainAbs = Main.AbsolutePosition
             local mainSize = Main.AbsoluteSize
             TabBox.Position = UDim2.new(0, mainAbs.X + mainSize.X / 2 - newWidth / 2, 0, mainAbs.Y - 52)
@@ -1099,7 +1083,6 @@ function Library:CreateWindow(options)
     end
     TabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateTabBoxSize)
 
-    -- Dragging for main UI (also moves title and tab box)
     local dragging, dragInput, dragStart, startPos
     local function updateDrag(input)
         local delta = input.Position - dragStart
@@ -1131,7 +1114,6 @@ function Library:CreateWindow(options)
         if input == dragInput and dragging then updateDrag(input) end
     end)
 
-    -- Close button - HIDE EVERYTHING
     Close.MouseButton1Click:Connect(function()
         ScreenGui:Destroy()
         NGui:Destroy()
@@ -1141,6 +1123,7 @@ function Library:CreateWindow(options)
         Library.TitleBox = nil
         Library.TabBox = nil
         Library.MainFrame = nil
+        Library.ToggleBtn = nil
         if Library.KeybindConnections then
             for _, conn in pairs(Library.KeybindConnections) do
                 pcall(function() conn:Disconnect() end)
@@ -1153,9 +1136,9 @@ function Library:CreateWindow(options)
     function Window:CreateTab(name, layoutOrder, iconAsset)
         local tabIcon = iconAsset or "rbxassetid://6031068812"
         
-        -- Calculate initial width based on name
-        local nameWidth = TextService:GetTextSize(name, 13, Enum.Font.GothamBold, Vector2.new(9999, 100)).X
-        local buttonWidth = math.max(60, 30 + nameWidth + 10) -- Icon(18) + gap + name
+        -- Safe text width calculation
+        local nameWidth = GetTextWidth(name, 13, Enum.Font.GothamBold)
+        local buttonWidth = math.max(70, 32 + nameWidth + 12)
         
         local TabButton = Instance.new("TextButton")
         TabButton.Parent = TabContainer
@@ -1172,23 +1155,21 @@ function Library:CreateWindow(options)
         TabCorner.CornerRadius = UDim.new(0, 8)
         TabCorner.Parent = TabButton
 
-        -- Bigger Icon
         local TabIcon = Instance.new("ImageLabel")
         TabIcon.Parent = TabButton
         TabIcon.BackgroundTransparency = 1
         TabIcon.Position = UDim2.new(0, 8, 0.5, -10)
         TabIcon.Size = UDim2.new(0, 20, 0, 20)
         TabIcon.Image = tabIcon
-        TabIcon.ImageColor3 = Color3.fromRGB(100, 100, 100)
+        TabIcon.ImageColor3 = Color3.fromRGB(240, 240, 240)
         TabIcon.ScaleType = Enum.ScaleType.Fit
         TabIcon.ZIndex = 102
 
-        -- Name ALWAYS visible, bold, white
         local TabLabel = Instance.new("TextLabel")
         TabLabel.Parent = TabButton
         TabLabel.BackgroundTransparency = 1
         TabLabel.Position = UDim2.new(0, 32, 0, 0)
-        TabLabel.Size = UDim2.new(0, nameWidth + 5, 1, 0)
+        TabLabel.Size = UDim2.new(0, nameWidth + 10, 1, 0)
         TabLabel.Font = Enum.Font.GothamBold
         TabLabel.Text = name
         TabLabel.TextColor3 = Color3.fromRGB(240, 240, 240)
@@ -1671,7 +1652,6 @@ function Library:CreateWindow(options)
                     RunService.RenderStepped:Connect(function()
                         if Open then
                             DropFrame.Position = UDim2.new(0, MainBtn.AbsolutePosition.X, 0, MainBtn.AbsolutePosition.Y + MainBtn.AbsoluteSize.Y + 3)
-                            DropFrame.Size = UDim2.new(0, MainBtn.AbsoluteSize.X, 0, DropFrame.Size.Y.Offset)
                         end
                     end)
 
@@ -1970,18 +1950,15 @@ function Library:CreateWindow(options)
         end)
     end)
     
-    local gameInfo = pcall(function() return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId) end)
-    local gameName = gameInfo and gameInfo.Name or "Loading..."
-    
     local GN = Instance.new("TextLabel")
     GN.Parent = GF; GN.BackgroundTransparency = 1; GN.Position = UDim2.new(0, 44, 0, 0)
     GN.Size = UDim2.new(1, -44, 0, 14); GN.Font = Enum.Font.GothamBold
-    GN.Text = gameName; GN.TextColor3 = Color3.fromRGB(220, 220, 220); GN.TextSize = 11; GN.TextXAlignment = Enum.TextXAlignment.Left; GN.TextTruncate = Enum.TextTruncate.AtEnd
+    GN.Text = "Game: " .. game.PlaceId; GN.TextColor3 = Color3.fromRGB(220, 220, 220); GN.TextSize = 11; GN.TextXAlignment = Enum.TextXAlignment.Left
     
     local GID = Instance.new("TextLabel")
     GID.Parent = GF; GID.BackgroundTransparency = 1; GID.Position = UDim2.new(0, 44, 0, 16)
     GID.Size = UDim2.new(1, -44, 0, 13); GID.Font = Enum.Font.GothamMedium
-    GID.Text = "ID: " .. game.PlaceId; GID.TextColor3 = Color3.fromRGB(130, 130, 130); GID.TextSize = 10; GID.TextXAlignment = Enum.TextXAlignment.Left
+    GID.Text = "Place: " .. game.PlaceId; GID.TextColor3 = Color3.fromRGB(130, 130, 130); GID.TextSize = 10; GID.TextXAlignment = Enum.TextXAlignment.Left
     
     local PCnt = Instance.new("TextLabel")
     PCnt.Parent = GF; PCnt.BackgroundTransparency = 1; PCnt.Position = UDim2.new(0, 44, 0, 29)
@@ -2152,6 +2129,7 @@ function Library:CreateWindow(options)
         Library.TitleBox = nil
         Library.TabBox = nil
         Library.MainFrame = nil
+        Library.ToggleBtn = nil
         if Library.KeybindConnections then
             for _, conn in pairs(Library.KeybindConnections) do
                 pcall(function() conn:Disconnect() end)
@@ -2163,7 +2141,6 @@ function Library:CreateWindow(options)
         game:GetService("TeleportService"):Teleport(game.PlaceId, Players.LocalPlayer)
     end)
 
-    -- Keybind - toggle with RightShift
     Library:SetKeybind(Enum.KeyCode.RightShift, function()
         if Library.MainFrame then
             SetUIVisibility(not Library.MainFrame.Visible)
@@ -2190,7 +2167,6 @@ function Library:CreateWindow(options)
     AddTerminalLog("Welcome, " .. Players.LocalPlayer.Name)
     AddTerminalLog("Place: " .. game.PlaceId)
     
-    -- Position outer elements
     task.wait(0.1)
     local mainAbs = Main.AbsolutePosition
     local mainSize = Main.AbsoluteSize

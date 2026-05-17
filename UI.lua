@@ -94,11 +94,16 @@ local function GetDevice()
     return "PC"
 end
 
+local FPS = 60
+local Last = tick()
+
+RunService.RenderStepped:Connect(function()
+    FPS = math.floor(1 / (tick() - Last))
+    Last = tick()
+end)
+
 local function GetFPS()
-    local fps = 60
-    pcall(function() fps = math.floor(1 / Stats.FrameTime) end)
-    if fps > 1000 or fps < 0 then fps = 60 end
-    return fps
+    return FPS
 end
 
 local function GetViewportSize()
@@ -116,6 +121,38 @@ local function GetTextWidth(text, fontSize, font)
 end
 
 local ThemePresets = {
+    Default = {
+        accent = {150,150,150},
+        bg = {10,10,10},
+        section = {18,18,18},
+        text = {240,240,240},
+        subtext = {170,170,170},
+        toggle = {170,170,170}
+    },
+    Nebula = {
+        accent = {120,140,255},
+        bg = {8,10,18},
+        section = {18,22,35},
+        text = {230,230,255},
+        subtext = {140,150,190},
+        toggle = {120,140,255}
+    },
+    Crimson = {
+        accent = {255,90,120},
+        bg = {18,8,10},
+        section = {30,14,18},
+        text = {255,220,225},
+        subtext = {200,140,150},
+        toggle = {255,90,120}
+    },
+    Emerald = {
+        accent = {90,255,170},
+        bg = {8,16,12},
+        section = {14,26,20},
+        text = {220,255,235},
+        subtext = {140,190,160},
+        toggle = {90,255,170}
+    },
     Dark = {accent = {150,150,150}, bg = {10,10,10}, section = {16,16,16}, text = {240,240,240}, subtext = {160,160,160}, toggle = {150,150,150}},
     Dracula = {accent = {189,147,249}, bg = {40,42,54}, section = {50,52,64}, text = {248,248,242}, subtext = {180,180,190}, toggle = {139,233,253}},
     Moon = {accent = {130,170,255}, bg = {15,18,30}, section = {22,25,40}, text = {220,230,255}, subtext = {150,160,200}, toggle = {130,170,255}},
@@ -219,9 +256,9 @@ function Library:Notify(title, desc, time)
 end
 
 -- Config Management
-function Library:SaveConfig(name) local data = {}; for flag, value in pairs(Library.Flags) do if typeof(value) == "Color3" then data[flag] = {r = value.R, g = value.G, b = value.B} else data[flag] = value end end; local hwid = GetHWID(); writefile(Library.Directory .. "/configs/" .. hwid .. "_" .. name .. ".cfg", HttpService:JSONEncode(data)); Library:Notify("Config", "Saved: " .. name, 2) end
-function Library:LoadConfig(name) local hwid = GetHWID(); local path = Library.Directory .. "/configs/" .. hwid .. "_" .. name .. ".cfg"; if not isfile(path) then path = Library.Directory .. "/configs/" .. name .. ".cfg"; if not isfile(path) then Library:Notify("Config", "Not found", 2); return end end; local data = HttpService:JSONDecode(readfile(path)); for flag, value in pairs(data) do local actualValue = value; if type(value) == "table" and value.r then actualValue = Color3.new(value.r, value.g, value.b) end; if Library.Callbacks[flag] then Library.Callbacks[flag](actualValue) end end; Library:Notify("Config", "Loaded: " .. name, 2) end
-function Library:GetConfigs() local list = {}; local hwid = GetHWID(); pcall(function() for _, file in pairs(listfiles(Library.Directory .. "/configs")) do local name = file:gsub(Library.Directory .. "/configs\\", ""):gsub(".cfg", ""); if name:find(hwid .. "_") then name = name:gsub(hwid .. "_", "") end; if not table.find(list, name) then table.insert(list, name) end end end); return list end
+function Library:SaveConfig(name) local data = {}; for flag, value in pairs(Library.Flags) do if typeof(value) == "Color3" then data[flag] = {r = value.R, g = value.G, b = value.B} else data[flag] = value end end; writefile(Library.Directory .. "/configs/" .. name .. ".cfg", HttpService:JSONEncode(data)); Library:Notify("Config", "Saved: " .. name, 2) end
+function Library:LoadConfig(name) local path = Library.Directory .. "/configs/" .. name .. ".cfg"; if not isfile(path) then Library:Notify("Config", "Not found", 2); return end; local data = HttpService:JSONDecode(readfile(path)); for flag, value in pairs(data) do local actualValue = value; if type(value) == "table" and value.r then actualValue = Color3.new(value.r, value.g, value.b) end; if Library.Callbacks[flag] then Library.Callbacks[flag](actualValue) end end; Library:Notify("Config", "Loaded: " .. name, 2) end
+function Library:GetConfigs() local list = {}; pcall(function() for _, file in pairs(listfiles(Library.Directory .. "/configs")) do local name = file:gsub(Library.Directory .. "/configs\\", ""):gsub(".cfg", ""); name = name; if not table.find(list, name) then table.insert(list, name) end end end); return list end
 function Library:SaveTheme(name) local theme = {accent = {Library.Config.AccentColor.R, Library.Config.AccentColor.G, Library.Config.AccentColor.B}, bg = {Library.Config.BackgroundColor.R, Library.Config.BackgroundColor.G, Library.Config.BackgroundColor.B}, section = {Library.Config.SectionColor.R, Library.Config.SectionColor.G, Library.Config.SectionColor.B}, text = {Library.Config.TextColor.R, Library.Config.TextColor.G, Library.Config.TextColor.B}, subtext = {Library.Config.SubTextColor.R, Library.Config.SubTextColor.G, Library.Config.SubTextColor.B}, toggle = {Library.Config.OpenCloseColor.R, Library.Config.OpenCloseColor.G, Library.Config.OpenCloseColor.B}, themeImage = Library.Config.ThemeImage, useTheme = Library.Config.UseThemeImage}; writefile(Library.Directory .. "/themes/" .. name .. ".json", HttpService:JSONEncode(theme)); LoadSavedThemes(); Library:Notify("Theme", "Saved", 2) end
 function Library:LoadTheme(name) local path = Library.Directory .. "/themes/" .. name .. ".json"; if not isfile(path) then return end; local theme = HttpService:JSONDecode(readfile(path)); if theme.accent then Library.Config.AccentColor = Color3.new(theme.accent[1], theme.accent[2], theme.accent[3]) end; if theme.bg then Library.Config.BackgroundColor = Color3.new(theme.bg[1], theme.bg[2], theme.bg[3]) end; if theme.section then Library.Config.SectionColor = Color3.new(theme.section[1], theme.section[2], theme.section[3]) end; if theme.text then Library.Config.TextColor = Color3.new(theme.text[1], theme.text[2], theme.text[3]) end; if theme.subtext then Library.Config.SubTextColor = Color3.new(theme.subtext[1], theme.subtext[2], theme.subtext[3]) end; if theme.toggle then Library.Config.OpenCloseColor = Color3.new(theme.toggle[1], theme.toggle[2], theme.toggle[3]) end; if theme.themeImage then Library.Config.ThemeImage = theme.themeImage end; if theme.useTheme ~= nil then Library.Config.UseThemeImage = theme.useTheme end end
 function Library:ApplyThemePreset(presetName) local preset = ThemePresets[presetName]; if not preset then return end; Library.Config.AccentColor = Color3.new(preset.accent[1]/255, preset.accent[2]/255, preset.accent[3]/255); Library.Config.BackgroundColor = Color3.new(preset.bg[1]/255, preset.bg[2]/255, preset.bg[3]/255); Library.Config.SectionColor = Color3.new(preset.section[1]/255, preset.section[2]/255, preset.section[3]/255); Library.Config.TextColor = Color3.new(preset.text[1]/255, preset.text[2]/255, preset.text[3]/255); Library.Config.SubTextColor = Color3.new(preset.subtext[1]/255, preset.subtext[2]/255, preset.subtext[3]/255); Library.Config.OpenCloseColor = Color3.new(preset.toggle[1]/255, preset.toggle[2]/255, preset.toggle[3]/255) end
@@ -230,21 +267,23 @@ Library.Keybinds = {}; Library.KeybindConnections = {}
 function Library:SetKeybind(key, callback) if Library.KeybindConnections[key] then Library.KeybindConnections[key]:Disconnect() end; Library.Keybinds[key] = callback; Library.KeybindConnections[key] = UserInputService.InputBegan:Connect(function(input, gameProcessed) if gameProcessed then return end; if input.KeyCode == key then callback() end end) end
 
 local function MakeColorPicker(parent, defaultColor, callback)
-    local Overlay = Instance.new("Frame"); Overlay.Parent = parent; Overlay.BackgroundTransparency = 1; Overlay.Size = UDim2.new(1, 0, 1, 0); Overlay.ZIndex = 999; Overlay.Visible = false
-    local Main = Instance.new("Frame"); Main.Parent = Overlay; Main.BackgroundColor3 = Color3.fromRGB(18, 18, 18); Main.Size = UDim2.new(0, 310, 0, 360); Main.BorderSizePixel = 0; Main.ZIndex = 1000
+    local Overlay = Instance.new("Frame"); Overlay.Parent = parent; Overlay.BackgroundTransparency = 1; Overlay.Size = UDim2.new(1, 0, 1, 0); Overlay.ZIndex = 999; Overlay.Visible = false; Overlay.Name = "Overlay"
+    local Main = Instance.new("Frame"); Main.Parent = Overlay; Main.BackgroundColor3 = Color3.fromRGB(18, 18, 18); Main.Size = UDim2.new(0, 255, 0, 300); Main.BorderSizePixel = 0; Main.ZIndex = 1000
     local MC = Instance.new("UICorner"); MC.CornerRadius = UDim.new(0, 8); MC.Parent = Main
-    local Canvas = Instance.new("ImageButton"); Canvas.Parent = Main; Canvas.Size = UDim2.new(1, -20, 0, 220); Canvas.Position = UDim2.new(0, 10, 0, 30); Canvas.BackgroundColor3 = Color3.fromRGB(255, 0, 0); Canvas.BorderSizePixel = 0; Canvas.AutoButtonColor = false; Canvas.ZIndex = 1001
+    local Canvas = Instance.new("ImageButton"); Canvas.Parent = Main; Canvas.Size = UDim2.new(1, -20, 0, 170); Canvas.Position = UDim2.new(0, 10, 0, 30); Canvas.BackgroundColor3 = Color3.fromRGB(255, 0, 0); Canvas.BorderSizePixel = 0; Canvas.AutoButtonColor = false; Canvas.ZIndex = 1001
     local CC = Instance.new("UICorner"); CC.CornerRadius = UDim.new(0, 6); CC.Parent = Canvas
     local SatGrad = Instance.new("UIGradient"); SatGrad.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255))}); SatGrad.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1)}); SatGrad.Rotation = 90; SatGrad.Parent = Canvas
     local SatGrad2 = Instance.new("UIGradient"); SatGrad2.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))}); SatGrad2.Parent = Canvas
     local Dot = Instance.new("Frame"); Dot.Parent = Canvas; Dot.BackgroundColor3 = Color3.fromRGB(255, 255, 255); Dot.Size = UDim2.new(0, 14, 0, 14); Dot.Position = UDim2.new(1, -7, 0, -7); Dot.ZIndex = 1002; Dot.BorderSizePixel = 0; local DC = Instance.new("UICorner"); DC.CornerRadius = UDim.new(1, 0); DC.Parent = Dot; local DS = Instance.new("UIStroke"); DS.Parent = Dot; DS.Color = Color3.fromRGB(40, 40, 40); DS.Thickness = 1.5
-    local HueSlider = Instance.new("ImageButton"); HueSlider.Parent = Main; HueSlider.Size = UDim2.new(1, -20, 0, 20); HueSlider.Position = UDim2.new(0, 10, 0, 265); HueSlider.BackgroundColor3 = Color3.fromRGB(255, 255, 255); HueSlider.BorderSizePixel = 0; HueSlider.AutoButtonColor = false; HueSlider.ZIndex = 1001
+    local HueSlider = Instance.new("ImageButton"); HueSlider.Parent = Main; HueSlider.Size = UDim2.new(1, -20, 0, 20); HueSlider.Position = UDim2.new(0, 10, 0, 215); HueSlider.BackgroundColor3 = Color3.fromRGB(255, 255, 255); HueSlider.BorderSizePixel = 0; HueSlider.AutoButtonColor = false; HueSlider.ZIndex = 1001
     local HC = Instance.new("UICorner"); HC.CornerRadius = UDim.new(0, 8); HC.Parent = HueSlider
     local HueGrad = Instance.new("UIGradient"); HueGrad.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)), ColorSequenceKeypoint.new(0.17, Color3.fromRGB(255, 255, 0)), ColorSequenceKeypoint.new(0.33, Color3.fromRGB(0, 255, 0)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 255, 255)), ColorSequenceKeypoint.new(0.67, Color3.fromRGB(0, 0, 255)), ColorSequenceKeypoint.new(0.83, Color3.fromRGB(255, 0, 255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))}); HueGrad.Parent = HueSlider
     local HueDot = Instance.new("Frame"); HueDot.Parent = HueSlider; HueDot.BackgroundColor3 = Color3.fromRGB(255, 255, 255); HueDot.Size = UDim2.new(0, 4, 1.2, 0); HueDot.Position = UDim2.new(1, -2, 0, -2); HueDot.ZIndex = 1002; HueDot.BorderSizePixel = 0
-    local Preview = Instance.new("Frame"); Preview.Parent = Main; Preview.Size = UDim2.new(0, 42, 0, 42); Preview.Position = UDim2.new(0, 10, 0, 300); Preview.BackgroundColor3 = defaultColor; Preview.BorderSizePixel = 0; Preview.ZIndex = 1001; local PC2 = Instance.new("UICorner"); PC2.CornerRadius = UDim.new(0, 6); PC2.Parent = Preview; local PrevStroke = Instance.new("UIStroke"); PrevStroke.Parent = Preview; PrevStroke.Color = Color3.fromRGB(50, 50, 50); PrevStroke.Thickness = 1
-    local HexInput = Instance.new("TextBox"); HexInput.Parent = Main; HexInput.Size = UDim2.new(1, -70, 0, 42); HexInput.Position = UDim2.new(0, 58, 0, 300); HexInput.BackgroundColor3 = Color3.fromRGB(20, 20, 20); HexInput.BorderSizePixel = 0; HexInput.Text = string.format("#%02X%02X%02X", defaultColor.R * 255, defaultColor.G * 255, defaultColor.B * 255); HexInput.TextColor3 = Color3.fromRGB(240, 240, 240); HexInput.Font = Enum.Font.GothamBold; HexInput.TextSize = 14; HexInput.ZIndex = 1001; local HIC = Instance.new("UICorner"); HIC.CornerRadius = UDim.new(0, 6); HIC.Parent = HexInput
-    local RGBText = Instance.new("TextLabel"); RGBText.Parent = Main; RGBText.BackgroundTransparency = 1; RGBText.Position = UDim2.new(0, 10, 0, 340); RGBText.Size = UDim2.new(1, -20, 0, 14); RGBText.Font = Enum.Font.GothamBold; RGBText.TextColor3 = Color3.fromRGB(180, 180, 180); RGBText.TextSize = 11; RGBText.Text = "R: 255  G: 255  B: 255"; RGBText.ZIndex = 1002
+    local Preview = Instance.new("Frame"); Preview.Parent = Main; Preview.Size = UDim2.new(0, 42, 0, 42); Preview.Position = UDim2.new(0, 10, 0, 245); Preview.BackgroundColor3 = defaultColor; Preview.BorderSizePixel = 0; Preview.ZIndex = 1001; local PC2 = Instance.new("UICorner"); PC2.CornerRadius = UDim.new(0, 6); PC2.Parent = Preview; local PrevStroke = Instance.new("UIStroke"); PrevStroke.Parent = Preview; PrevStroke.Color = Color3.fromRGB(50, 50, 50); PrevStroke.Thickness = 1
+    local HexInput = Instance.new("TextBox"); HexInput.Parent = Main; HexInput.Size = UDim2.new(1, -70, 0, 42); HexInput.Position = UDim2.new(0, 58, 0, 245); HexInput.BackgroundColor3 = Color3.fromRGB(20, 20, 20); HexInput.BorderSizePixel = 0; HexInput.Text = string.format("#%02X%02X%02X", defaultColor.R * 255, defaultColor.G * 255, defaultColor.B * 255); HexInput.TextColor3 = Color3.fromRGB(240, 240, 240); HexInput.Font = Enum.Font.GothamBold; HexInput.TextSize = 14; HexInput.ZIndex = 1001; local HIC = Instance.new("UICorner"); HIC.CornerRadius = UDim.new(0, 6); HIC.Parent = HexInput
+    local RGBText = Instance.new("TextLabel"); RGBText.Parent = Main; RGBText.BackgroundTransparency = 1; RGBText.Position = UDim2.new(0, 10, 0, 285); RGBText.Size = UDim2.new(1, -20, 0, 14); RGBText.Font = Enum.Font.GothamBold; RGBText.TextColor3 = Color3.fromRGB(180, 180, 180); RGBText.TextSize = 11; RGBText.Text = "R: 255  G: 255  B: 255"; RGBText.ZIndex = 1002
+    local ApplyButton = Instance.new("TextButton"); ApplyButton.Parent = Main; ApplyButton.Size = UDim2.new(1, -20, 0, 24); ApplyButton.Position = UDim2.new(0, 10, 1, -30); ApplyButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30); ApplyButton.Text = "Apply"; ApplyButton.TextColor3 = Color3.fromRGB(240, 240, 240); ApplyButton.Font = Enum.Font.GothamBold; ApplyButton.TextSize = 12; ApplyButton.ZIndex = 1002; local APC = Instance.new("UICorner"); APC.CornerRadius = UDim.new(0, 6); APC.Parent = ApplyButton
+    ApplyButton.MouseButton1Click:Connect(function() callback(Preview.BackgroundColor3); Overlay.Visible = false end)
     local curH, curS, curV = defaultColor:ToHSV()
     local function UpdateFromHSV()
         local color = Color3.fromHSV(curH, curS, curV); Preview.BackgroundColor3 = color
@@ -258,7 +297,7 @@ local function MakeColorPicker(parent, defaultColor, callback)
     local hueDragging = false; HueSlider.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then hueDragging = true end end)
     UserInputService.InputChanged:Connect(function(input) if hueDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local pos = UserInputService:GetMouseLocation(); local hp = HueSlider.AbsolutePosition; local hs = HueSlider.AbsoluteSize; curH = math.clamp((pos.X - hp.X) / hs.X, 0, 1); HueDot.Position = UDim2.new(curH, -2, 0, -2); UpdateFromHSV() end end)
     HexInput.FocusLost:Connect(function() local text = HexInput.Text:gsub("#", ""):upper(); if #text == 6 then local r = math.clamp(tonumber(text:sub(1,2), 16) or 255, 0, 255); local g = math.clamp(tonumber(text:sub(3,4), 16) or 255, 0, 255); local b = math.clamp(tonumber(text:sub(5,6), 16) or 255, 0, 255); local color = Color3.fromRGB(r, g, b); curH, curS, curV = color:ToHSV(); UpdateFromHSV() end end)
-    Overlay.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then local mp = UserInputService:GetMouseLocation(); local pp = Main.AbsolutePosition; local ps = Main.AbsoluteSize; if not (mp.X >= pp.X and mp.X <= pp.X + ps.X and mp.Y >= pp.Y and mp.Y <= pp.Y + ps.Y) then Overlay.Visible = false end end end)
+    Overlay.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then local mp = UserInputService:GetMouseLocation(); local pp = Main.AbsolutePosition; local ps = Main.AbsoluteSize; if not (mp.X >= pp.X and mp.X <= pp.X + ps.X and mp.Y >= pp.Y and mp.Y <= pp.Y + ps.Y) then Overlay.Visible = false end end; callback(Preview.BackgroundColor3) end)
     UpdateFromHSV()
     return {Overlay = Overlay, Main = Main, SetColor = function(color) curH, curS, curV = color:ToHSV(); UpdateFromHSV() end, Show = function(position) Overlay.Visible = true; Main.Position = UDim2.new(0, position.X, 0, position.Y) end}
 end
@@ -328,55 +367,57 @@ function Library:CreateWindow(options)
     local TabBC = Instance.new("UICorner"); TabBC.CornerRadius = UDim.new(0, 12); TabBC.Parent = TabBox; local TabBS = Instance.new("UIStroke"); TabBS.Parent = TabBox; TabBS.Color = Color3.fromRGB(45, 45, 45); TabBS.Thickness = 1
     local TabContainer = Instance.new("Frame"); TabContainer.Parent = TabBox; TabContainer.BackgroundTransparency = 1; TabContainer.Position = UDim2.new(0, 6, 0, 0); TabContainer.Size = UDim2.new(1, -12, 1, 0)
     local TabLayout = Instance.new("UIListLayout"); TabLayout.Parent = TabContainer; TabLayout.FillDirection = Enum.FillDirection.Horizontal; TabLayout.SortOrder = Enum.SortOrder.LayoutOrder; TabLayout.VerticalAlignment = Enum.VerticalAlignment.Center; TabLayout.Padding = UDim.new(0, 5)
-    local function UpdateTabBoxSize() local totalWidth = TabLayout.AbsoluteContentSize.X + 12; local newWidth = math.max(totalWidth, 50); TabBox.Size = UDim2.new(0, newWidth, 0, 42); if Main then local mainAbs = Main.AbsolutePosition; local mainSize = Main.AbsoluteSize; TabBox.Position = UDim2.new(0, mainAbs.X + mainSize.X/2 - newWidth/2, 0, mainAbs.Y - 4) end end
+    local function UpdateTabBoxSize() local totalWidth = TabLayout.AbsoluteContentSize.X + 12; local newWidth = math.max(totalWidth, 50); TabBox.Size = UDim2.new(0, newWidth, 0, 42); if Main then local mainAbs = Main.AbsolutePosition; local mainSize = Main.AbsoluteSize; TabBox.Position = UDim2.new(0, mainAbs.X + 120, 0, mainAbs.Y + 4) end end
     TabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateTabBoxSize)
 
     -- Global Chat Box
-    local ChatBox = Instance.new("Frame"); ChatBox.Name = "ChatBox"; ChatBox.Parent = ScreenGui; ChatBox.BackgroundColor3 = Color3.fromRGB(14, 14, 14); ChatBox.BackgroundTransparency = 0.05; ChatBox.Size = UDim2.new(0, 200, 0, 250); ChatBox.BorderSizePixel = 0; ChatBox.ZIndex = 100; ChatBox.Visible = false; Library.ChatBox = ChatBox
+    local ChatBox = Instance.new("Frame"); ChatBox.Name = "ChatBox"; ChatBox.Parent = ScreenGui; ChatBox.BackgroundColor3 = Color3.fromRGB(14, 14, 14); ChatBox.BackgroundTransparency = 0.05; ChatBox.Size = UDim2.new(0, 290, 0, 360); ChatBox.BorderSizePixel = 0; ChatBox.ZIndex = 100; ChatBox.Visible = false; Library.ChatBox = ChatBox
     local ChatBC = Instance.new("UICorner"); ChatBC.CornerRadius = UDim.new(0, 10); ChatBC.Parent = ChatBox
     local ChatBS = Instance.new("UIStroke"); ChatBS.Parent = ChatBox; ChatBS.Color = Color3.fromRGB(45, 45, 45); ChatBS.Thickness = 1
     local ChatHeader = Instance.new("Frame"); ChatHeader.Parent = ChatBox; ChatHeader.BackgroundColor3 = Color3.fromRGB(18, 18, 18); ChatHeader.Size = UDim2.new(1, 0, 0, 26); ChatHeader.BorderSizePixel = 0
     local ChatHC = Instance.new("UICorner"); ChatHC.CornerRadius = UDim.new(0, 10); ChatHC.Parent = ChatHeader
-    local ChatTitle = Instance.new("TextLabel"); ChatTitle.Parent = ChatHeader; ChatTitle.BackgroundTransparency = 1; ChatTitle.Position = UDim2.new(0, 10, 0, 0); ChatTitle.Size = UDim2.new(1, -20, 1, 0); ChatTitle.Font = Enum.Font.GothamBold; ChatTitle.Text = "Global Chat"; ChatTitle.TextColor3 = Color3.fromRGB(220, 220, 220); ChatTitle.TextSize = 11
+    local ChatTitle = Instance.new("TextLabel"); ChatTitle.Parent = ChatHeader; ChatTitle.BackgroundTransparency = 1; ChatTitle.Position = UDim2.new(0, 10, 0, 0); ChatTitle.Size = UDim2.new(0.5, 0, 1, 0); ChatTitle.Font = Enum.Font.GothamBold; ChatTitle.Text = "Global Chat"; ChatTitle.TextColor3 = Color3.fromRGB(220, 220, 220); ChatTitle.TextSize = 11; ChatTitle.TextXAlignment = Enum.TextXAlignment.Left
+    local OnlineCount = Instance.new("TextLabel"); OnlineCount.Parent = ChatHeader; OnlineCount.BackgroundTransparency = 1; OnlineCount.Position = UDim2.new(1, -70, 0, 0); OnlineCount.Size = UDim2.new(0, 60, 1, 0); OnlineCount.Font = Enum.Font.GothamBold; OnlineCount.Text = "0 Online"; OnlineCount.TextColor3 = Color3.fromRGB(140, 140, 140); OnlineCount.TextSize = 10; OnlineCount.TextXAlignment = Enum.TextXAlignment.Right
     local ChatScroll = Instance.new("ScrollingFrame"); ChatScroll.Parent = ChatBox; ChatScroll.BackgroundTransparency = 1; ChatScroll.BorderSizePixel = 0; ChatScroll.Position = UDim2.new(0, 4, 0, 28); ChatScroll.Size = UDim2.new(1, -8, 1, -58); ChatScroll.ScrollBarThickness = 2; ChatScroll.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 60); ChatScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    local ChatList = Instance.new("UIListLayout"); ChatList.Parent = ChatScroll; ChatList.SortOrder = Enum.SortOrder.LayoutOrder; ChatList.Padding = UDim.new(0, 2)
+    local ChatList = Instance.new("UIListLayout"); ChatList.Parent = ChatScroll; ChatList.SortOrder = Enum.SortOrder.LayoutOrder; ChatList.Padding = UDim.new(0, 6)
     local ChatInput = Instance.new("TextBox"); ChatInput.Parent = ChatBox; ChatInput.BackgroundColor3 = Color3.fromRGB(20, 20, 20); ChatInput.BorderSizePixel = 0; ChatInput.Position = UDim2.new(0, 4, 1, -26); ChatInput.Size = UDim2.new(1, -58, 0, 22); ChatInput.Font = Enum.Font.GothamMedium; ChatInput.PlaceholderText = "Message..."; ChatInput.Text = ""; ChatInput.TextColor3 = Color3.fromRGB(220, 220, 220); ChatInput.PlaceholderColor3 = Color3.fromRGB(120, 120, 120); ChatInput.TextSize = 10; ChatInput.ClearTextOnFocus = false; ChatInput.TextXAlignment = Enum.TextXAlignment.Left
     local ChatICorner = Instance.new("UICorner"); ChatICorner.CornerRadius = UDim.new(0, 4); ChatICorner.Parent = ChatInput
     local ChatSendBtn = Instance.new("TextButton"); ChatSendBtn.Parent = ChatBox; ChatSendBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60); ChatSendBtn.BorderSizePixel = 0; ChatSendBtn.Position = UDim2.new(1, -50, 1, -26); ChatSendBtn.Size = UDim2.new(0, 46, 0, 22); ChatSendBtn.Font = Enum.Font.GothamBold; ChatSendBtn.Text = "Send"; ChatSendBtn.TextColor3 = Color3.fromRGB(240, 240, 240); ChatSendBtn.TextSize = 10; ChatSendBtn.AutoButtonColor = false
     local ChatSBtnCorner = Instance.new("UICorner"); ChatSBtnCorner.CornerRadius = UDim.new(0, 4); ChatSBtnCorner.Parent = ChatSendBtn
 
     local chatMessages = {}
-    local function AddChatBubble(username, message)
-        local Bubble = Instance.new("Frame"); Bubble.Parent = ChatScroll; Bubble.BackgroundColor3 = Color3.fromRGB(20, 20, 20); Bubble.Size = UDim2.new(1, -4, 0, 0); Bubble.BorderSizePixel = 0
-        local BC = Instance.new("UICorner"); BC.CornerRadius = UDim.new(0, 4); BC.Parent = Bubble
-        local UserLabel = Instance.new("TextLabel"); UserLabel.Parent = Bubble; UserLabel.BackgroundTransparency = 1; UserLabel.Position = UDim2.new(0, 6, 0, 2); UserLabel.Size = UDim2.new(1, -12, 0, 12); UserLabel.Font = Enum.Font.GothamBold; UserLabel.Text = username; UserLabel.TextColor3 = Color3.fromRGB(180, 180, 180); UserLabel.TextSize = 9
-        local MsgLabel = Instance.new("TextLabel"); MsgLabel.Parent = Bubble; MsgLabel.BackgroundTransparency = 1; MsgLabel.Position = UDim2.new(0, 6, 0, 14); MsgLabel.Size = UDim2.new(1, -12, 0, 0); MsgLabel.Font = Enum.Font.GothamMedium; MsgLabel.Text = message; MsgLabel.TextColor3 = Color3.fromRGB(200, 200, 200); MsgLabel.TextSize = 9; MsgLabel.TextWrapped = true; MsgLabel.AutomaticSize = Enum.AutomaticSize.Y
-        Bubble.Size = UDim2.new(1, -4, 0, MsgLabel.TextBounds.Y + 18)
-        ChatScroll.CanvasSize = UDim2.new(0, 0, 0, ChatList.AbsoluteContentSize.Y + 4)
+    local function AddChatBubble(username, message, userid)
+        local isLocal = username == Players.LocalPlayer.Name
+        local Bubble = Instance.new("Frame"); Bubble.Parent = ChatScroll; Bubble.BackgroundTransparency = 1; Bubble.Size = UDim2.new(1, 0, 0, 42)
+        local Holder = Instance.new("Frame"); Holder.Parent = Bubble; Holder.BackgroundColor3 = Color3.fromRGB(22, 22, 22); Holder.BorderSizePixel = 0; Holder.Size = UDim2.new(0.72, 0, 1, 0); Holder.Position = isLocal and UDim2.new(0.28, 0, 0, 0) or UDim2.new(0, 0, 0, 0)
+        local HC = Instance.new("UICorner"); HC.CornerRadius = UDim.new(0, 6); HC.Parent = Holder
+        local Avatar = Instance.new("ImageLabel"); Avatar.Parent = Holder; Avatar.BackgroundTransparency = 1; Avatar.Size = UDim2.new(0, 26, 0, 26); Avatar.Position = UDim2.new(0, 8, 0, 8); Avatar.Image = Players:GetUserThumbnailAsync(userid or 1, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
+        local AVC = Instance.new("UICorner"); AVC.CornerRadius = UDim.new(1, 0); AVC.Parent = Avatar
+        local Name = Instance.new("TextLabel"); Name.Parent = Holder; Name.BackgroundTransparency = 1; Name.Position = UDim2.new(0, 40, 0, 4); Name.Size = UDim2.new(1, -45, 0, 12); Name.Font = Enum.Font.GothamBold; Name.Text = username; Name.TextSize = 10; Name.TextXAlignment = Enum.TextXAlignment.Left; Name.TextColor3 = Color3.fromRGB(220, 220, 220)
+        local Msg = Instance.new("TextLabel"); Msg.Parent = Holder; Msg.BackgroundTransparency = 1; Msg.Position = UDim2.new(0, 40, 0, 16); Msg.Size = UDim2.new(1, -45, 0, 20); Msg.Font = Enum.Font.GothamMedium; Msg.Text = message; Msg.TextWrapped = true; Msg.TextSize = 10; Msg.TextXAlignment = Enum.TextXAlignment.Left; Msg.TextColor3 = Color3.fromRGB(180, 180, 180)
+        ChatScroll.CanvasSize = UDim2.new(0, 0, 0, ChatList.AbsoluteContentSize.Y + 10)
         ChatScroll.CanvasPosition = Vector2.new(0, ChatScroll.CanvasSize.Y.Offset)
-        table.insert(chatMessages, Bubble)
-        if #chatMessages > 50 then chatMessages[1]:Destroy(); table.remove(chatMessages, 1) end
     end
 
     local function SendChatMessage()
         local msg = ChatInput.Text; if msg == "" then return end
         local success = Library:SendChatMessage(msg)
-        if success then Library:AddChatMessage(Players.LocalPlayer.Name, msg); AddChatBubble(Players.LocalPlayer.Name, msg); ChatInput.Text = ""
+        if success then Library:AddChatMessage(Players.LocalPlayer.Name, msg); AddChatBubble(Players.LocalPlayer.Name, msg, Players.LocalPlayer.UserId); ChatInput.Text = ""
         else Library:Notify("Chat", "Failed to send", 2) end
     end
 
     ChatSendBtn.MouseButton1Click:Connect(SendChatMessage)
     ChatInput.FocusLost:Connect(function(enterPressed) if enterPressed then SendChatMessage() end end)
 
-    task.spawn(function() while true do if Library.ChatEnabled then local messages = Library:PollChatMessages(); for _, msg in pairs(messages) do if msg.username ~= Players.LocalPlayer.Name then Library:AddChatMessage(msg.username, msg.message); AddChatBubble(msg.username, msg.message) end end end; task.wait(2) end end)
+    task.spawn(function() while true do if Library.ChatEnabled then local messages = Library:PollChatMessages(); OnlineCount.Text = tostring(#messages) .. " Online"; for _, msg in pairs(messages) do if msg.username ~= Players.LocalPlayer.Name then Library:AddChatMessage(msg.username, msg.message); AddChatBubble(msg.username, msg.message, msg.userid) end end end; task.wait(2) end end)
 
     local dragging, dragInput, dragStart, startPos
     local function updateDrag(input)
         local delta = input.Position - dragStart; Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         local mainAbs = Main.AbsolutePosition; local mainSize = Main.AbsoluteSize
-        TitleBox.Position = UDim2.new(0, mainAbs.X + 8, 0, mainAbs.Y - 2)
-        TabBox.Position = UDim2.new(0, mainAbs.X + mainSize.X/2 - TabBox.AbsoluteSize.X/2, 0, mainAbs.Y - 4)
-        if Library.ChatBox and Library.ChatEnabled then ChatBox.Position = UDim2.new(0, mainAbs.X - ChatBox.AbsoluteSize.X - 8, 0, mainAbs.Y) end
+        TitleBox.Position = UDim2.new(0, mainAbs.X + 8, 0, mainAbs.Y + 4)
+        TabBox.Position = UDim2.new(0, mainAbs.X + 120, 0, mainAbs.Y + 4)
+        if Library.ChatBox and Library.ChatEnabled then ChatBox.Position = UDim2.new(0, mainAbs.X - ChatBox.AbsoluteSize.X - 10, 0, mainAbs.Y + 38) end
     end
     Header.InputBegan:Connect(function(input) if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then dragging = true; dragStart = input.Position; startPos = Main.Position; input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end) end end)
     Header.InputChanged:Connect(function(input) if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then dragInput = input end end)
@@ -396,6 +437,7 @@ function Library:CreateWindow(options)
         local Tab = {Name = name, SubTabs = {}, CurrentSubTab = nil, Button = TabButton, Icon = TabIcon, Label = TabLabel, Page = Page}
 
         TabButton.MouseButton1Click:Connect(function()
+            for _, obj in pairs(Library.ScreenGui:GetDescendants()) do if obj.Name == "Overlay" then obj.Visible = false end end
             for _, t in pairs(Window.Tabs) do t.Page.Visible = false; Library:Tween(t.Button, 0.2, {BackgroundTransparency = 0.2, BackgroundColor3 = Color3.fromRGB(22, 22, 22), Size = UDim2.new(0, iconOnlyWidth, 0, 32)}); Library:Tween(t.Icon, 0.2, {ImageColor3 = Color3.fromRGB(100, 100, 100), Position = UDim2.new(0.5, -10, 0.5, -10)}); t.Label.Visible = false; for _, st in pairs(t.SubTabs) do st.Button.Visible = false end end
             if name == "Dashboard" then Terminal.Visible = true; Content.Size = UDim2.new(1, -24, 1, -150) else Terminal.Visible = false; Content.Size = UDim2.new(1, -24, 1, -75) end
             Page.Visible = true; Library:Tween(TabButton, 0.2, {BackgroundTransparency = 0, BackgroundColor3 = Color3.fromRGB(28, 28, 28), Size = UDim2.new(0, fullWidth, 0, 32)}); Library:Tween(TabIcon, 0.2, {ImageColor3 = Color3.fromRGB(240, 240, 240), Position = UDim2.new(0, 8, 0.5, -10)}); TabLabel.Visible = true; UpdateTabBoxSize()
@@ -421,8 +463,8 @@ function Library:CreateWindow(options)
                 side = side or "Left"; local secIcon = iconAsset or "rbxassetid://6031068812"; local Parent = (side == "Left" and LeftCol or RightCol)
                 local SectionFrame = Instance.new("Frame"); SectionFrame.Parent = Parent; SectionFrame.BackgroundColor3 = Library.Config.SectionColor; SectionFrame.BackgroundTransparency = 0.05; SectionFrame.BorderSizePixel = 0; SectionFrame.Size = UDim2.new(1, 0, 0, 40); SectionFrame.ClipsDescendants = true; SectionFrame.ZIndex = 5
                 local SecCorner = Instance.new("UICorner"); SecCorner.CornerRadius = UDim.new(0, 6); SecCorner.Parent = SectionFrame
-                local SecIcon = Instance.new("ImageLabel"); SecIcon.Parent = SectionFrame; SecIcon.BackgroundTransparency = 1; SecIcon.Position = UDim2.new(0, 12, 0, 10); SecIcon.Size = UDim2.new(0, 14, 0, 14); SecIcon.Image = secIcon; SecIcon.ImageColor3 = Color3.fromRGB(160, 160, 160); SecIcon.ScaleType = Enum.ScaleType.Fit
-                local SecTitle = Instance.new("TextLabel"); SecTitle.Parent = SectionFrame; SecTitle.BackgroundTransparency = 1; SecTitle.Position = UDim2.new(0, 32, 0, 10); SecTitle.Size = UDim2.new(1, -44, 0, 18); SecTitle.Font = Enum.Font.GothamBold; SecTitle.Text = secName; SecTitle.TextColor3 = Color3.fromRGB(200, 200, 200); SecTitle.TextSize = 12
+                local SecIcon = Instance.new("ImageLabel"); SecIcon.Parent = SectionFrame; SecIcon.BackgroundTransparency = 1; SecIcon.Position = UDim2.new(0, 8, 0, 10); SecIcon.Size = UDim2.new(0, 14, 0, 14); SecIcon.Image = secIcon; SecIcon.ImageColor3 = Color3.fromRGB(160, 160, 160); SecIcon.ScaleType = Enum.ScaleType.Fit
+                local SecTitle = Instance.new("TextLabel"); SecTitle.Parent = SectionFrame; SecTitle.BackgroundTransparency = 1; SecTitle.Position = UDim2.new(0, 28, 0, 10); SecTitle.Size = UDim2.new(1, -40, 0, 18); SecTitle.Font = Enum.Font.GothamBold; SecTitle.Text = secName; SecTitle.TextColor3 = Color3.fromRGB(200, 200, 200); SecTitle.TextSize = 12
                 local Container = Instance.new("Frame"); Container.Parent = SectionFrame; Container.BackgroundTransparency = 1; Container.Position = UDim2.new(0, 12, 0, 38); Container.Size = UDim2.new(1, -24, 0, 0)
                 local SecLayout = Instance.new("UIListLayout"); SecLayout.Parent = Container; SecLayout.SortOrder = Enum.SortOrder.LayoutOrder; SecLayout.Padding = UDim.new(0, 7)
                 SecLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() Container.Size = UDim2.new(1, -24, 0, SecLayout.AbsoluteContentSize.Y); SectionFrame.Size = UDim2.new(1, 0, 0, SecLayout.AbsoluteContentSize.Y + 50) end)
@@ -503,7 +545,7 @@ function Library:CreateWindow(options)
                     local PickerLabel = Instance.new("TextLabel"); PickerLabel.Parent = PickerContainer; PickerLabel.BackgroundTransparency = 1; PickerLabel.Size = UDim2.new(0.65, 0, 1, 0); PickerLabel.Font = Enum.Font.GothamMedium; PickerLabel.Text = pickerName; PickerLabel.TextColor3 = Library.Config.SubTextColor; PickerLabel.TextSize = 12; PickerLabel.TextXAlignment = Enum.TextXAlignment.Left
                     local ColorBox = Instance.new("TextButton"); ColorBox.Parent = PickerContainer; ColorBox.BackgroundColor3 = defaultColor; ColorBox.BorderSizePixel = 0; ColorBox.Position = UDim2.new(1, -20, 0.5, -10); ColorBox.Size = UDim2.new(0, 20, 0, 20); ColorBox.Text = ""; ColorBox.AutoButtonColor = false; local CBcorner = Instance.new("UICorner"); CBcorner.CornerRadius = UDim.new(0, 3); CBcorner.Parent = ColorBox
                     local picker = MakeColorPicker(Library.ScreenGui, defaultColor, function(color) ColorBox.BackgroundColor3 = color; if flag then Library.Flags[flag] = color end; callback(color) end)
-                    local isOpen = false; ColorBox.MouseButton1Click:Connect(function() isOpen = not isOpen; if isOpen then picker.Show(Vector2.new(ColorBox.AbsolutePosition.X - 280, ColorBox.AbsolutePosition.Y + 25)) else picker.Overlay.Visible = false end end)
+                    local isOpen = false; ColorBox.MouseButton1Click:Connect(function() isOpen = not isOpen; if isOpen then picker.Show(Vector2.new(ColorBox.AbsolutePosition.X - 230, ColorBox.AbsolutePosition.Y + 25)) else picker.Overlay.Visible = false end end)
                     picker.Overlay.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then local mp = UserInputService:GetMouseLocation(); local pp = picker.Main.AbsolutePosition; local ps = picker.Main.AbsoluteSize; local cp = ColorBox.AbsolutePosition; local cs = ColorBox.AbsoluteSize; if not (mp.X >= pp.X and mp.X <= pp.X + ps.X and mp.Y >= pp.Y and mp.Y <= pp.Y + ps.Y) and not (mp.X >= cp.X and mp.X <= cp.X + cs.X and mp.Y >= cp.Y and mp.Y <= cp.Y + cs.Y) then picker.Overlay.Visible = false; isOpen = false end end end)
                     if flag then Library.Callbacks[flag] = picker.SetColor; Library.Flags[flag] = defaultColor end; return picker
                 end
@@ -535,7 +577,7 @@ function Library:CreateWindow(options)
     end
 
     -- DASHBOARD
-    local DashTab = Window:CreateTab("Dashboard", 0, "rbxassetid://84983817196455"); local DashSub = DashTab:CreateSubTab("Home")
+    local DashTab = Window:CreateTab("Dashboard", 0, "rbxassetid://96170375252355"); local DashSub = DashTab:CreateSubTab("Home")
     local PlayerSec = DashSub:CreateSection("Player", "Left")
     local Card = Instance.new("Frame"); Card.Parent = PlayerSec.Container; Card.BackgroundColor3 = Color3.fromRGB(18, 18, 18); Card.Size = UDim2.new(1, 0, 0, 90); Card.BorderSizePixel = 0
     local CardCorner = Instance.new("UICorner"); CardCorner.CornerRadius = UDim.new(0, 8); CardCorner.Parent = Card; local Glow = Instance.new("UIStroke"); Glow.Parent = Card; Glow.Color = Color3.fromRGB(40, 40, 40); Glow.Thickness = 1
@@ -577,7 +619,7 @@ function Library:CreateWindow(options)
     DiscordSec.Container.Size = UDim2.new(1, -24, 0, DiscordSec.Container.Size.Y.Offset + 70)
 
     -- SETTINGS
-    local SettingsTab = Window:CreateTab("Settings", 999); local SettingsMain = SettingsTab:CreateSubTab("Main")
+    local SettingsTab = Window:CreateTab("Settings", 999, "rbxassetid://101463883805422"); local SettingsMain = SettingsTab:CreateSubTab("Main")
     local ConfigsSec = SettingsMain:CreateSection("Configs", "Left"); local ThemeSec = SettingsMain:CreateSection("Theme", "Right"); local MenuSec = SettingsMain:CreateSection("Menu", "Left")
     local ConfigNameInput = ConfigsSec:CreateTextbox("Config Name", "Enter name...", {}, function() end)
     local configList = Library:GetConfigs(); local ConfigDrop = ConfigsSec:CreateDropdown("Saved Configs", #configList > 0 and configList or {"None"}, {}, function(selected) if selected ~= "None" then ConfigNameInput.Set(selected) end end)
@@ -592,7 +634,7 @@ function Library:CreateWindow(options)
     ThemeSec:CreateButton("Save Theme", function() Library:SaveTheme("theme_" .. os.time()); local newList = Library.SavedThemes; ThemeDrop.Refresh(#newList > 0 and newList or {"None"}) end)
     ThemeSec:CreateButton("Apply Theme", function() local selected = Library.Flags["theme_dropdown"] or ""; if selected ~= "" and selected ~= "None" then Library:LoadTheme(selected) end end)
     local ToggleColorPicker = ThemeSec:CreateColorPicker("Toggle Color", Library.Config.OpenCloseColor, {Flag = "toggle_color"}, function(color) Library.Config.OpenCloseColor = color; Toggle.BackgroundColor3 = color; TogS.Color = color end)
-    local ChatToggle = MenuSec:CreateToggle("Global Chat", false, {Flag = "global_chat"}, function(val) Library.ChatEnabled = val; if ChatBox then ChatBox.Visible = val; if val then local mainAbs = Main.AbsolutePosition; ChatBox.Position = UDim2.new(0, mainAbs.X - ChatBox.AbsoluteSize.X - 8, 0, mainAbs.Y) end end end)
+    local ChatToggle = MenuSec:CreateToggle("Global Chat", false, {Flag = "global_chat"}, function(val) Library.ChatEnabled = val; if ChatBox then ChatBox.Visible = val; if val then local mainAbs = Main.AbsolutePosition; ChatBox.Position = UDim2.new(0, mainAbs.X - ChatBox.AbsoluteSize.X - 10, 0, mainAbs.Y + 38) end end end)
     MenuSec:CreateToggle("Watermark", true, {Flag = "show_watermark"}, function(val) Library.WatermarkVisible = val; WMBox.Visible = val end)
     MenuSec:CreateButton("Unload UI", function() ScreenGui:Destroy(); NGui:Destroy(); WMGui:Destroy(); TitleBox:Destroy(); TabBox:Destroy(); if ChatBox then ChatBox:Destroy() end; Library.TitleBox = nil; Library.TabBox = nil; Library.MainFrame = nil; Library.ToggleBtn = nil; Library.ChatBox = nil; if Library.KeybindConnections then for _, conn in pairs(Library.KeybindConnections) do pcall(function() conn:Disconnect() end) end end end)
     MenuSec:CreateButton("Rejoin", function() game:GetService("TeleportService"):Teleport(game.PlaceId, Players.LocalPlayer) end)
@@ -603,9 +645,9 @@ function Library:CreateWindow(options)
     for _, st in pairs(DashTab.SubTabs) do st.Button.Visible = true end; if DashTab.SubTabs[1] then DashTab.SubTabs[1].Page.Visible = true; DashTab.CurrentSubTab = DashTab.SubTabs[1] end
     AddTerminalLog("Amira UI loaded"); AddTerminalLog("Welcome, " .. Players.LocalPlayer.Name); AddTerminalLog("Place: " .. game.PlaceId)
     task.wait(0.1); local mainAbs = Main.AbsolutePosition; local mainSize = Main.AbsoluteSize
-    TitleBox.Position = UDim2.new(0, mainAbs.X + 8, 0, mainAbs.Y - 2)
-    TabBox.Position = UDim2.new(0, mainAbs.X + mainSize.X/2 - TabBox.AbsoluteSize.X/2, 0, mainAbs.Y - 4)
-    if ChatBox then ChatBox.Position = UDim2.new(0, mainAbs.X - ChatBox.AbsoluteSize.X - 8, 0, mainAbs.Y) end
+    TitleBox.Position = UDim2.new(0, mainAbs.X + 8, 0, mainAbs.Y + 4)
+    TabBox.Position = UDim2.new(0, mainAbs.X + 120, 0, mainAbs.Y + 4)
+    if ChatBox then ChatBox.Position = UDim2.new(0, mainAbs.X - ChatBox.AbsoluteSize.X - 10, 0, mainAbs.Y + 38) end
     UpdateTabBoxSize()
     task.wait(0.3); SetUIVisibility(true)
     return Window

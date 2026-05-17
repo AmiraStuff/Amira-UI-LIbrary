@@ -10,6 +10,7 @@ if CoreGui:FindFirstChild("AmiraUI") then CoreGui:FindFirstChild("AmiraUI"):Dest
 if CoreGui:FindFirstChild("AmiraNotifications") then CoreGui:FindFirstChild("AmiraNotifications"):Destroy() end
 if CoreGui:FindFirstChild("AmiraWatermark") then CoreGui:FindFirstChild("AmiraWatermark"):Destroy() end
 if CoreGui:FindFirstChild("AmiraLoading") then CoreGui:FindFirstChild("AmiraLoading"):Destroy() end
+if CoreGui:FindFirstChild("AmiraOverlay") then CoreGui:FindFirstChild("AmiraOverlay"):Destroy() end
 
 local Library = {
     Tabs = {},
@@ -34,14 +35,17 @@ local Library = {
     DiscordMembers = 200,
     ScriptUpdates = {},
     HWID = "",
-    SavedThemes = {}
+    SavedThemes = {},
+    MainFrame = nil,
+    TitleBox = nil,
+    TabBox = nil,
+    ToggleBtn = nil
 }
 
 pcall(function() makefolder(Library.Directory) end)
 pcall(function() makefolder(Library.Directory .. "/configs") end)
 pcall(function() makefolder(Library.Directory .. "/themes") end)
 
--- Get HWID
 local function GetHWID()
     if Library.HWID ~= "" then return Library.HWID end
     local success, result = pcall(function()
@@ -51,7 +55,6 @@ local function GetHWID()
     return Library.HWID
 end
 
--- Load saved themes
 local function LoadSavedThemes()
     local list = {}
     pcall(function()
@@ -89,26 +92,33 @@ local function GetFPS()
     return fps
 end
 
--- Loading Screen (CENTERED)
+-- Get viewport size for responsive design
+local function GetViewportSize()
+    local camera = workspace.CurrentCamera
+    if camera then
+        return camera.ViewportSize
+    end
+    return Vector2.new(1920, 1080)
+end
+
+-- Loading Screen (FULLY CENTERED, NO DARK OVERLAY)
 local function ShowLoading(scriptName, done)
     local LGui = Instance.new("ScreenGui")
     LGui.Name = "AmiraLoading"
     LGui.Parent = CoreGui
     LGui.ResetOnSpawn = false
+    LGui.IgnoreGuiInset = true
     
-    local Overlay = Instance.new("Frame")
-    Overlay.Parent = LGui
-    Overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    Overlay.BackgroundTransparency = 1
-    Overlay.Size = UDim2.new(1, 0, 1, 0)
-    Library:Tween(Overlay, 0.3, {BackgroundTransparency = 0.7})
+    local viewport = GetViewportSize()
+    local boxWidth = math.clamp(viewport.X * 0.35, 240, 320)
+    local boxHeight = math.clamp(viewport.Y * 0.5, 280, 380)
     
     local Box = Instance.new("Frame")
-    Box.Parent = Overlay
+    Box.Parent = LGui
     Box.BackgroundColor3 = Color3.fromRGB(16, 16, 16)
-    Box.Position = UDim2.new(0.5, -140, 0.5, -170)
-    Box.Size = UDim2.new(0, 280, 0, 340)
-    Box.AnchorPoint = Vector2.new(0.5, 0.5)
+    Box.Position = UDim2.new(0.5, -boxWidth/2, 0.5, -boxHeight/2)
+    Box.Size = UDim2.new(0, boxWidth, 0, boxHeight)
+    Box.AnchorPoint = Vector2.new(0, 0)
     Box.BorderSizePixel = 0
     
     local BC = Instance.new("UICorner")
@@ -120,11 +130,12 @@ local function ShowLoading(scriptName, done)
     BS.Color = Color3.fromRGB(50, 50, 50)
     BS.Thickness = 1
     
+    local logoSize = math.clamp(boxWidth * 0.28, 60, 90)
     local Logo = Instance.new("ImageLabel")
     Logo.Parent = Box
     Logo.BackgroundTransparency = 1
-    Logo.Position = UDim2.new(0.5, -45, 0, 20)
-    Logo.Size = UDim2.new(0, 90, 0, 90)
+    Logo.Position = UDim2.new(0.5, -logoSize/2, 0, boxHeight * 0.08)
+    Logo.Size = UDim2.new(0, logoSize, 0, logoSize)
     Logo.Image = "rbxassetid://84983817196455"
     Logo.ScaleType = Enum.ScaleType.Fit
     
@@ -137,31 +148,34 @@ local function ShowLoading(scriptName, done)
         end
     end)
     
+    local welcomeY = boxHeight * 0.08 + logoSize + 15
     local WText = Instance.new("TextLabel")
     WText.Parent = Box
     WText.BackgroundTransparency = 1
-    WText.Position = UDim2.new(0, 0, 0, 125)
-    WText.Size = UDim2.new(1, 0, 0, 24)
+    WText.Position = UDim2.new(0, 0, 0, welcomeY)
+    WText.Size = UDim2.new(1, 0, 0, math.clamp(boxHeight * 0.08, 20, 26))
     WText.Font = Enum.Font.GothamBold
     WText.Text = "Welcome"
     WText.TextColor3 = Color3.fromRGB(240, 240, 240)
-    WText.TextSize = 22
+    WText.TextSize = math.clamp(boxWidth * 0.06, 16, 22)
     
     local TText = Instance.new("TextLabel")
     TText.Parent = Box
     TText.BackgroundTransparency = 1
-    TText.Position = UDim2.new(0, 0, 0, 150)
-    TText.Size = UDim2.new(1, 0, 0, 16)
+    TText.Position = UDim2.new(0, 0, 0, welcomeY + 24)
+    TText.Size = UDim2.new(1, 0, 0, math.clamp(boxHeight * 0.05, 14, 18))
     TText.Font = Enum.Font.GothamMedium
     TText.Text = "Thanks for using " .. scriptName
     TText.TextColor3 = Color3.fromRGB(150, 150, 150)
-    TText.TextSize = 13
+    TText.TextSize = math.clamp(boxWidth * 0.04, 11, 14)
     
+    local pfpSize = math.clamp(boxWidth * 0.18, 45, 65)
+    local pfpY = welcomeY + 50
     local PFP = Instance.new("ImageLabel")
     PFP.Parent = Box
     PFP.BackgroundTransparency = 1
-    PFP.Position = UDim2.new(0.5, -30, 0, 178)
-    PFP.Size = UDim2.new(0, 60, 0, 60)
+    PFP.Position = UDim2.new(0.5, -pfpSize/2, 0, pfpY)
+    PFP.Size = UDim2.new(0, pfpSize, 0, pfpSize)
     PFP.Image = Players:GetUserThumbnailAsync(Players.LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
     PFP.ScaleType = Enum.ScaleType.Fit
     
@@ -174,25 +188,26 @@ local function ShowLoading(scriptName, done)
     PS.Color = Color3.fromRGB(60, 60, 60)
     PS.Thickness = 2
     
+    local nameY = pfpY + pfpSize + 10
     local UName = Instance.new("TextLabel")
     UName.Parent = Box
     UName.BackgroundTransparency = 1
-    UName.Position = UDim2.new(0, 0, 0, 248)
-    UName.Size = UDim2.new(1, 0, 0, 20)
+    UName.Position = UDim2.new(0, 0, 0, nameY)
+    UName.Size = UDim2.new(1, 0, 0, math.clamp(boxHeight * 0.06, 16, 22))
     UName.Font = Enum.Font.GothamBold
     UName.Text = Players.LocalPlayer.Name
     UName.TextColor3 = Color3.fromRGB(240, 240, 240)
-    UName.TextSize = 15
+    UName.TextSize = math.clamp(boxWidth * 0.05, 13, 16)
     
     local Plan = Instance.new("TextLabel")
     Plan.Parent = Box
     Plan.BackgroundTransparency = 1
-    Plan.Position = UDim2.new(0, 0, 0, 270)
-    Plan.Size = UDim2.new(1, 0, 0, 16)
+    Plan.Position = UDim2.new(0, 0, 0, nameY + 22)
+    Plan.Size = UDim2.new(1, 0, 0, math.clamp(boxHeight * 0.05, 14, 18))
     Plan.Font = Enum.Font.GothamMedium
     Plan.Text = "Plan: Checking..."
     Plan.TextColor3 = Color3.fromRGB(150, 150, 150)
-    Plan.TextSize = 12
+    Plan.TextSize = math.clamp(boxWidth * 0.04, 11, 13)
     
     task.spawn(function()
         local s, r = pcall(function() return Players.LocalPlayer.MembershipType end)
@@ -202,7 +217,6 @@ local function ShowLoading(scriptName, done)
     end)
     
     task.wait(3)
-    Library:Tween(LGui, 0.3, {})
     LGui:Destroy()
     if done then done() end
 end
@@ -283,7 +297,7 @@ task.spawn(function()
     end
 end)
 
--- Notifications (better animations)
+-- Notifications
 local NGui = Instance.new("ScreenGui")
 NGui.Name = "AmiraNotifications"
 NGui.Parent = CoreGui
@@ -313,7 +327,6 @@ function Library:Notify(title, desc, time)
     Main.Size = UDim2.new(0, 290, 0, 0)
     Main.ClipsDescendants = true
     Main.BackgroundTransparency = 0
-    Main.AnchorPoint = Vector2.new(0, 1)
 
     local C = Instance.new("UICorner")
     C.CornerRadius = UDim.new(0, 8)
@@ -362,14 +375,12 @@ function Library:Notify(title, desc, time)
     CB.TextColor3 = Color3.fromRGB(160, 160, 160)
     CB.TextSize = 12
 
-    -- Animate in
     local targetHeight = 24 + DL.TextBounds.Y + 14
     Main.Size = UDim2.new(0, 290, 0, 0)
     Library:Tween(Main, 0.25, {Size = UDim2.new(0, 290, 0, targetHeight)})
     
     task.spawn(function()
         task.wait(time)
-        -- Animate out
         local tw = Library:Tween(Main, 0.3, {BackgroundTransparency = 1, Size = UDim2.new(0, 0, 0, 0)})
         tw.Completed:Wait()
         Main:Destroy()
@@ -437,7 +448,6 @@ function Library:GetConfigs()
     return list
 end
 
--- Save/Load Themes
 function Library:SaveTheme(name)
     local theme = {
         accent = {Library.Config.AccentColor.R, Library.Config.AccentColor.G, Library.Config.AccentColor.B},
@@ -705,18 +715,23 @@ function Library:CreateWindow(options)
     ScreenGui.Parent = CoreGui
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     ScreenGui.ResetOnSpawn = false
+    ScreenGui.IgnoreGuiInset = true
     Library.ScreenGui = ScreenGui
 
     -- Main UI
+    local viewport = GetViewportSize()
+    local mainWidth = math.clamp(viewport.X * 0.5, 500, 720)
+    local mainHeight = math.clamp(viewport.Y * 0.65, 400, 540)
+    
     local Main = Instance.new("Frame")
     Main.Name = "Main"
     Main.Parent = ScreenGui
     Main.BackgroundColor3 = Library.Config.BackgroundColor
     Main.BorderSizePixel = 0
-    Main.Position = UDim2.new(0.5, 0, 0.5, 0)
-    Main.Size = UDim2.new(0, 700, 0, 520)
-    Main.AnchorPoint = Vector2.new(0.5, 0.5)
+    Main.Position = UDim2.new(0.5, -mainWidth/2, 0.5, -mainHeight/2)
+    Main.Size = UDim2.new(0, mainWidth, 0, mainHeight)
     Main.ClipsDescendants = true
+    Library.MainFrame = Main
 
     local UIC = Instance.new("UICorner")
     UIC.CornerRadius = UDim.new(0, 10)
@@ -769,7 +784,7 @@ function Library:CreateWindow(options)
     Minimize.TextColor3 = Color3.fromRGB(200, 200, 200)
     Minimize.TextSize = 14
 
-    -- Sub-Tabs Area (slightly taller)
+    -- Sub-Tabs Area
     local SubTabArea = Instance.new("Frame")
     SubTabArea.Parent = Main
     SubTabArea.BackgroundTransparency = 1
@@ -789,7 +804,7 @@ function Library:CreateWindow(options)
     Content.Position = UDim2.new(0, 12, 0, 60)
     Content.Size = UDim2.new(1, -24, 1, -145)
 
-    -- Terminal (bigger, more visible)
+    -- Terminal
     local Terminal = Instance.new("Frame")
     Terminal.Parent = Main
     Terminal.BackgroundColor3 = Color3.fromRGB(11, 11, 11)
@@ -927,6 +942,7 @@ function Library:CreateWindow(options)
     Toggle.Image = "rbxassetid://84983817196455"
     Toggle.ZIndex = 10000
     Toggle.AutoButtonColor = false
+    Library.ToggleBtn = Toggle
 
     local TogC = Instance.new("UICorner")
     TogC.CornerRadius = UDim.new(0, 14)
@@ -937,7 +953,18 @@ function Library:CreateWindow(options)
     TogS.Color = Color3.fromRGB(80, 80, 80)
     TogS.Thickness = 2
 
-    -- Toggle drag
+    -- Global visibility function
+    local function SetUIVisibility(visible)
+        Main.Visible = visible
+        if Library.TitleBox then
+            Library.TitleBox.Visible = visible
+        end
+        if Library.TabBox then
+            Library.TabBox.Visible = visible
+        end
+    end
+
+    -- Toggle drag/click
     local togDragging, togStart, togStartPos, togMoved
     Toggle.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -950,10 +977,7 @@ function Library:CreateWindow(options)
     Toggle.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             if not togMoved then
-                local vis = not Main.Visible
-                Main.Visible = vis
-                TitleBox.Visible = vis
-                TabBox.Visible = vis
+                SetUIVisibility(not Main.Visible)
             end
             togDragging = false
         end
@@ -969,10 +993,7 @@ function Library:CreateWindow(options)
     end)
 
     Minimize.MouseButton1Click:Connect(function()
-        local vis = not Main.Visible
-        Main.Visible = vis
-        TitleBox.Visible = vis
-        TabBox.Visible = vis
+        SetUIVisibility(not Main.Visible)
     end)
 
     -- Title Box
@@ -984,6 +1005,7 @@ function Library:CreateWindow(options)
     TitleBox.Size = UDim2.new(0, 0, 0, 34)
     TitleBox.BorderSizePixel = 0
     TitleBox.ZIndex = 100
+    Library.TitleBox = TitleBox
     
     local TBC = Instance.new("UICorner")
     TBC.CornerRadius = UDim.new(0, 9)
@@ -1031,18 +1053,19 @@ function Library:CreateWindow(options)
     TitleMainLabel:GetPropertyChangedSignal("TextBounds"):Connect(UpdateTitleBox)
     TitleSuffixLabel:GetPropertyChangedSignal("TextBounds"):Connect(UpdateTitleBox)
     
-    -- Tab Box (auto-expanding)
+    -- Tab Box (BIGGER - names ALWAYS visible)
     local TabBox = Instance.new("Frame")
     TabBox.Name = "TabBox"
     TabBox.Parent = ScreenGui
     TabBox.BackgroundColor3 = Color3.fromRGB(16, 16, 16)
     TabBox.BackgroundTransparency = 0.06
-    TabBox.Size = UDim2.new(0, 44, 0, 38)
+    TabBox.Size = UDim2.new(0, 44, 0, 42)
     TabBox.BorderSizePixel = 0
     TabBox.ZIndex = 100
+    Library.TabBox = TabBox
     
     local TabBC = Instance.new("UICorner")
-    TabBC.CornerRadius = UDim.new(0, 10)
+    TabBC.CornerRadius = UDim.new(0, 12)
     TabBC.Parent = TabBox
     
     local TabBS = Instance.new("UIStroke")
@@ -1053,27 +1076,30 @@ function Library:CreateWindow(options)
     local TabContainer = Instance.new("Frame")
     TabContainer.Parent = TabBox
     TabContainer.BackgroundTransparency = 1
-    TabContainer.Position = UDim2.new(0, 5, 0, 0)
-    TabContainer.Size = UDim2.new(1, -10, 1, 0)
+    TabContainer.Position = UDim2.new(0, 6, 0, 0)
+    TabContainer.Size = UDim2.new(1, -12, 1, 0)
     
     local TabLayout = Instance.new("UIListLayout")
     TabLayout.Parent = TabContainer
     TabLayout.FillDirection = Enum.FillDirection.Horizontal
     TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
     TabLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-    TabLayout.Padding = UDim.new(0, 4)
+    TabLayout.Padding = UDim.new(0, 5)
     
     local function UpdateTabBoxSize()
-        local totalWidth = TabLayout.AbsoluteContentSize.X + 10
-        TabBox.Size = UDim2.new(0, math.max(totalWidth, 44), 0, 38)
-        -- Reposition to center above UI
-        local mainAbs = Main.AbsolutePosition
-        local mainSize = Main.AbsoluteSize
-        TabBox.Position = UDim2.new(0, mainAbs.X + mainSize.X / 2 - TabBox.AbsoluteSize.X / 2, 0, mainAbs.Y - 48)
+        local totalWidth = TabLayout.AbsoluteContentSize.X + 12
+        local newWidth = math.max(totalWidth, 50)
+        TabBox.Size = UDim2.new(0, newWidth, 0, 42)
+        -- Reposition centered above UI
+        if Main.Visible or true then
+            local mainAbs = Main.AbsolutePosition
+            local mainSize = Main.AbsoluteSize
+            TabBox.Position = UDim2.new(0, mainAbs.X + mainSize.X / 2 - newWidth / 2, 0, mainAbs.Y - 52)
+        end
     end
     TabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateTabBoxSize)
 
-    -- Dragging for main UI
+    -- Dragging for main UI (also moves title and tab box)
     local dragging, dragInput, dragStart, startPos
     local function updateDrag(input)
         local delta = input.Position - dragStart
@@ -1083,7 +1109,7 @@ function Library:CreateWindow(options)
         local mainSize = Main.AbsoluteSize
         
         TitleBox.Position = UDim2.new(0, mainAbs.X + 8, 0, mainAbs.Y - 44)
-        TabBox.Position = UDim2.new(0, mainAbs.X + mainSize.X / 2 - TabBox.AbsoluteSize.X / 2, 0, mainAbs.Y - 48)
+        TabBox.Position = UDim2.new(0, mainAbs.X + mainSize.X / 2 - TabBox.AbsoluteSize.X / 2, 0, mainAbs.Y - 52)
     end
     
     Header.InputBegan:Connect(function(input)
@@ -1105,12 +1131,16 @@ function Library:CreateWindow(options)
         if input == dragInput and dragging then updateDrag(input) end
     end)
 
+    -- Close button - HIDE EVERYTHING
     Close.MouseButton1Click:Connect(function()
         ScreenGui:Destroy()
         NGui:Destroy()
         WMGui:Destroy()
         TitleBox:Destroy()
         TabBox:Destroy()
+        Library.TitleBox = nil
+        Library.TabBox = nil
+        Library.MainFrame = nil
         if Library.KeybindConnections then
             for _, conn in pairs(Library.KeybindConnections) do
                 pcall(function() conn:Disconnect() end)
@@ -1123,46 +1153,48 @@ function Library:CreateWindow(options)
     function Window:CreateTab(name, layoutOrder, iconAsset)
         local tabIcon = iconAsset or "rbxassetid://6031068812"
         
+        -- Calculate initial width based on name
+        local nameWidth = TextService:GetTextSize(name, 13, Enum.Font.GothamBold, Vector2.new(9999, 100)).X
+        local buttonWidth = math.max(60, 30 + nameWidth + 10) -- Icon(18) + gap + name
+        
         local TabButton = Instance.new("TextButton")
         TabButton.Parent = TabContainer
         TabButton.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
         TabButton.BackgroundTransparency = 0.2
         TabButton.BorderSizePixel = 0
-        TabButton.Size = UDim2.new(0, 36, 0, 28)
+        TabButton.Size = UDim2.new(0, buttonWidth, 0, 32)
         TabButton.AutoButtonColor = false
         TabButton.Text = ""
         TabButton.LayoutOrder = layoutOrder or #Window.Tabs + 1
         TabButton.ZIndex = 101
 
         local TabCorner = Instance.new("UICorner")
-        TabCorner.CornerRadius = UDim.new(0, 7)
+        TabCorner.CornerRadius = UDim.new(0, 8)
         TabCorner.Parent = TabButton
 
-        -- Icon (bigger)
+        -- Bigger Icon
         local TabIcon = Instance.new("ImageLabel")
         TabIcon.Parent = TabButton
         TabIcon.BackgroundTransparency = 1
-        TabIcon.Position = UDim2.new(0, 8, 0.5, -9)
-        TabIcon.Size = UDim2.new(0, 18, 0, 18)
+        TabIcon.Position = UDim2.new(0, 8, 0.5, -10)
+        TabIcon.Size = UDim2.new(0, 20, 0, 20)
         TabIcon.Image = tabIcon
         TabIcon.ImageColor3 = Color3.fromRGB(100, 100, 100)
         TabIcon.ScaleType = Enum.ScaleType.Fit
         TabIcon.ZIndex = 102
 
-        -- Name (right of icon, white bold when active)
+        -- Name ALWAYS visible, bold, white
         local TabLabel = Instance.new("TextLabel")
         TabLabel.Parent = TabButton
         TabLabel.BackgroundTransparency = 1
-        TabLabel.Position = UDim2.new(0, 28, 0, 0)
-        TabLabel.Size = UDim2.new(0, 0, 1, 0)
+        TabLabel.Position = UDim2.new(0, 32, 0, 0)
+        TabLabel.Size = UDim2.new(0, nameWidth + 5, 1, 0)
         TabLabel.Font = Enum.Font.GothamBold
         TabLabel.Text = name
-        TabLabel.TextColor3 = Color3.fromRGB(100, 100, 100)
-        TabLabel.TextSize = 12
+        TabLabel.TextColor3 = Color3.fromRGB(240, 240, 240)
+        TabLabel.TextSize = 13
         TabLabel.TextXAlignment = Enum.TextXAlignment.Left
         TabLabel.ZIndex = 102
-        TabLabel.TextTransparency = 1
-        TabLabel.AutomaticSize = Enum.AutomaticSize.X
 
         local Page = Instance.new("Frame")
         Page.Parent = Content
@@ -1186,13 +1218,10 @@ function Library:CreateWindow(options)
                 t.Page.Visible = false
                 Library:Tween(t.Button, 0.2, {
                     BackgroundTransparency = 0.2,
-                    BackgroundColor3 = Color3.fromRGB(22, 22, 22),
-                    Size = UDim2.new(0, 36, 0, 28)
+                    BackgroundColor3 = Color3.fromRGB(22, 22, 22)
                 })
                 Library:Tween(t.Icon, 0.2, {ImageColor3 = Color3.fromRGB(100, 100, 100)})
-                Library:Tween(t.Label, 0.2, {TextTransparency = 1, TextColor3 = Color3.fromRGB(100, 100, 100)})
-                t.Label.AutomaticSize = Enum.AutomaticSize.X
-                t.Label.Size = UDim2.new(0, 0, 1, 0)
+                Library:Tween(t.Label, 0.2, {TextColor3 = Color3.fromRGB(100, 100, 100)})
                 for _, st in pairs(t.SubTabs) do st.Button.Visible = false end
             end
             
@@ -1205,19 +1234,12 @@ function Library:CreateWindow(options)
             end
             
             Page.Visible = true
-            TabLabel.TextTransparency = 0
-            TabLabel.TextColor3 = Color3.fromRGB(240, 240, 240)
-            TabLabel.AutomaticSize = Enum.AutomaticSize.X
-            task.wait()
-            
-            local newWidth = math.max(36, 28 + TabLabel.TextBounds.X + 12)
             Library:Tween(TabButton, 0.2, {
                 BackgroundTransparency = 0,
-                BackgroundColor3 = Color3.fromRGB(28, 28, 28),
-                Size = UDim2.new(0, newWidth, 0, 28)
+                BackgroundColor3 = Color3.fromRGB(28, 28, 28)
             })
             Library:Tween(TabIcon, 0.2, {ImageColor3 = Color3.fromRGB(240, 240, 240)})
-            UpdateTabBoxSize()
+            Library:Tween(TabLabel, 0.2, {TextColor3 = Color3.fromRGB(240, 240, 240)})
             
             for _, st in pairs(Tab.SubTabs) do st.Button.Visible = true end
             if Tab.CurrentSubTab then Tab.CurrentSubTab.Page.Visible = true end
@@ -1902,26 +1924,19 @@ function Library:CreateWindow(options)
         return Tab
     end
 
-    -- CREATE DASHBOARD TAB
+    -- DASHBOARD TAB
     local DashTab = Window:CreateTab("Dashboard", 0, "rbxassetid://84983817196455")
     local DashSub = DashTab:CreateSubTab("Home")
     
-    -- Player Section
     local PlayerSec = DashSub:CreateSection("Player", "Left")
     local PF = Instance.new("Frame")
-    PF.Parent = PlayerSec.Container
-    PF.BackgroundTransparency = 1
-    PF.Size = UDim2.new(1, 0, 0, 55)
+    PF.Parent = PlayerSec.Container; PF.BackgroundTransparency = 1; PF.Size = UDim2.new(1, 0, 0, 55)
     
     local PFP = Instance.new("ImageLabel")
-    PFP.Parent = PF
-    PFP.BackgroundTransparency = 1
-    PFP.Size = UDim2.new(0, 40, 0, 40)
+    PFP.Parent = PF; PFP.BackgroundTransparency = 1; PFP.Size = UDim2.new(0, 40, 0, 40)
     PFP.Image = Players:GetUserThumbnailAsync(Players.LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
     PFP.ScaleType = Enum.ScaleType.Fit
-    local PFPc = Instance.new("UICorner")
-    PFPc.CornerRadius = UDim.new(1, 0)
-    PFPc.Parent = PFP
+    local PFPc = Instance.new("UICorner"); PFPc.CornerRadius = UDim.new(1, 0); PFPc.Parent = PFP
     
     local UN = Instance.new("TextLabel")
     UN.Parent = PF; UN.BackgroundTransparency = 1; UN.Position = UDim2.new(0, 48, 0, 0)
@@ -1940,33 +1955,23 @@ function Library:CreateWindow(options)
     
     PlayerSec.Container.Size = UDim2.new(1, -24, 0, PlayerSec.Container.Size.Y.Offset + 55)
     
-    -- Game Section
     local GameSec = DashSub:CreateSection("Game", "Left")
     local GF = Instance.new("Frame")
     GF.Parent = GameSec.Container; GF.BackgroundTransparency = 1; GF.Size = UDim2.new(1, 0, 0, 50)
     
-    local function GetGameThumbnail()
-        local success, result = pcall(function()
-            return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId)
-        end)
-        return success and result or nil
-    end
-    
     local GI = Instance.new("ImageLabel")
     GI.Parent = GF; GI.BackgroundTransparency = 1; GI.Size = UDim2.new(0, 36, 0, 36)
     GI.ScaleType = Enum.ScaleType.Fit
-    local GIc = Instance.new("UICorner")
-    GIc.CornerRadius = UDim.new(0, 5); GIc.Parent = GI
+    local GIc = Instance.new("UICorner"); GIc.CornerRadius = UDim.new(0, 5); GIc.Parent = GI
     
-    local gameInfo = GetGameThumbnail()
-    local gameName = gameInfo and gameInfo.Name or "Loading..."
-    
-    -- Try to get game icon
     task.spawn(function()
         pcall(function()
             GI.Image = "rbxthumb://type=GameIcon&id=" .. game.PlaceId .. "&w=256&h=256"
         end)
     end)
+    
+    local gameInfo = pcall(function() return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId) end)
+    local gameName = gameInfo and gameInfo.Name or "Loading..."
     
     local GN = Instance.new("TextLabel")
     GN.Parent = GF; GN.BackgroundTransparency = 1; GN.Position = UDim2.new(0, 44, 0, 0)
@@ -1985,7 +1990,6 @@ function Library:CreateWindow(options)
     
     GameSec.Container.Size = UDim2.new(1, -24, 0, GameSec.Container.Size.Y.Offset + 50)
     
-    -- Status Section
     local StatusSec = DashSub:CreateSection("Status", "Right")
     local SF = Instance.new("Frame")
     SF.Parent = StatusSec.Container; SF.BackgroundTransparency = 1; SF.Size = UDim2.new(1, 0, 0, 45)
@@ -1999,11 +2003,6 @@ function Library:CreateWindow(options)
     Dev.Size = UDim2.new(1, 0, 0, 14); Dev.Font = Enum.Font.GothamMedium
     Dev.Text = "Device: " .. GetDevice(); Dev.TextColor3 = Color3.fromRGB(150, 150, 150); Dev.TextSize = 11; Dev.TextXAlignment = Enum.TextXAlignment.Left
     
-    local FPS = Instance.new("TextLabel")
-    FPS.Parent = SF; FPS.BackgroundTransparency = 1; FPS.Position = UDim2.new(0, 0, 0, 32)
-    FPS.Size = UDim2.new(1, 0, 0, 14); FPS.Font = Enum.Font.GothamMedium
-    FPS.Text = "FPS: " .. GetFPS(); FPS.TextColor3 = Color3.fromRGB(150, 150, 150); FPS.TextSize = 11; FPS.TextXAlignment = Enum.TextXAlignment.Left
-    
     task.spawn(function()
         local s, r = pcall(function() return Players.LocalPlayer.MembershipType end)
         if s then Prem.Text = "Premium: " .. (r == Enum.MembershipType.Premium and "Yes" or "No") end
@@ -2011,7 +2010,6 @@ function Library:CreateWindow(options)
     
     StatusSec.Container.Size = UDim2.new(1, -24, 0, StatusSec.Container.Size.Y.Offset + 45)
     
-    -- Friends Section
     local FriendsSec = DashSub:CreateSection("Friends", "Right")
     local FF = Instance.new("Frame")
     FF.Parent = FriendsSec.Container; FF.BackgroundTransparency = 1; FF.Size = UDim2.new(1, 0, 0, 40)
@@ -2037,7 +2035,6 @@ function Library:CreateWindow(options)
     
     FriendsSec.Container.Size = UDim2.new(1, -24, 0, FriendsSec.Container.Size.Y.Offset + 40)
     
-    -- Discord Section
     local DiscordSec = DashSub:CreateSection("Discord", "Left")
     local DF = Instance.new("Frame")
     DF.Parent = DiscordSec.Container; DF.BackgroundTransparency = 1; DF.Size = UDim2.new(1, 0, 0, 42)
@@ -2051,19 +2048,17 @@ function Library:CreateWindow(options)
     DBtn.Parent = DF; DBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35); DBtn.BorderSizePixel = 0
     DBtn.Position = UDim2.new(0, 0, 0, 22); DBtn.Size = UDim2.new(0, 105, 0, 20)
     DBtn.Font = Enum.Font.GothamBold; DBtn.Text = "Join Discord"; DBtn.TextColor3 = Color3.fromRGB(220, 220, 220); DBtn.TextSize = 10; DBtn.AutoButtonColor = false
-    local DBtnC = Instance.new("UICorner")
-    DBtnC.CornerRadius = UDim.new(0, 4); DBtnC.Parent = DBtn
+    local DBtnC = Instance.new("UICorner"); DBtnC.CornerRadius = UDim.new(0, 4); DBtnC.Parent = DBtn
     
     DBtn.MouseButton1Click:Connect(function()
         if Library.DiscordInvite ~= "" then
             setclipboard(Library.DiscordInvite)
-            Library:Notify("Discord", "Invite copied to clipboard!", 2)
+            Library:Notify("Discord", "Invite copied!", 2)
         end
     end)
     
     DiscordSec.Container.Size = UDim2.new(1, -24, 0, DiscordSec.Container.Size.Y.Offset + 42)
     
-    -- Updates Section
     local UpdatesSec = DashSub:CreateSection("Updates", "Right")
     local UF = Instance.new("Frame")
     UF.Parent = UpdatesSec.Container; UF.BackgroundTransparency = 1; UF.Size = UDim2.new(1, 0, 0, 35)
@@ -2072,23 +2067,13 @@ function Library:CreateWindow(options)
     UL.Parent = UF; UL.BackgroundTransparency = 1; UL.Size = UDim2.new(1, 0, 0, 0)
     UL.Font = Enum.Font.GothamMedium; UL.Text = "No updates yet"; UL.TextColor3 = Color3.fromRGB(130, 130, 130); UL.TextSize = 10; UL.TextXAlignment = Enum.TextXAlignment.Left; UL.TextWrapped = true; UL.AutomaticSize = Enum.AutomaticSize.Y
     
-    local function RefreshUpdates()
-        if #Library.ScriptUpdates > 0 then
-            local text = ""
-            for _, update in ipairs(Library.ScriptUpdates) do
-                text = text .. "[" .. update.date .. "] " .. update.message .. "\n"
-            end
-            UL.Text = text
-        end
-    end
-    
     UL:GetPropertyChangedSignal("TextBounds"):Connect(function()
         UF.Size = UDim2.new(1, 0, 0, UL.TextBounds.Y)
     end)
     
     UpdatesSec.Container.Size = UDim2.new(1, -24, 0, UpdatesSec.Container.Size.Y.Offset + 35)
 
-    -- CREATE SETTINGS TAB
+    -- SETTINGS TAB
     local SettingsTab = Window:CreateTab("Settings", 999)
     local SettingsMain = SettingsTab:CreateSubTab("Main")
     
@@ -2096,15 +2081,11 @@ function Library:CreateWindow(options)
     local ThemeSec = SettingsMain:CreateSection("Theme", "Right")
     local MenuSec = SettingsMain:CreateSection("Menu", "Left")
     
-    -- Config name textbox
     local ConfigNameInput = ConfigsSec:CreateTextbox("Config Name", "Enter name...", {}, function() end)
     
-    -- Config dropdown
     local configList = Library:GetConfigs()
     local ConfigDrop = ConfigsSec:CreateDropdown("Saved Configs", #configList > 0 and configList or {"No configs"}, {}, function(selected)
-        if selected ~= "No configs" then
-            ConfigNameInput.Set(selected)
-        end
+        if selected ~= "No configs" then ConfigNameInput.Set(selected) end
     end)
     
     local function RefreshConfigDropdown()
@@ -2113,58 +2094,42 @@ function Library:CreateWindow(options)
     end
     
     ConfigsSec:CreateButton("Save Config", function()
-        local name = ConfigNameInput.Set and Library.Flags["config_name_input"] or ""
-        if name == "" then name = "default" end
+        local name = Library.Flags["config_name_input"] or "default"
         Library:SaveConfig(name)
         RefreshConfigDropdown()
     end)
     
     ConfigsSec:CreateButton("Load Config", function()
-        local name = ConfigNameInput.Set and Library.Flags["config_name_input"] or ""
-        if name ~= "" then
-            Library:LoadConfig(name)
-        end
+        local name = Library.Flags["config_name_input"] or ""
+        if name ~= "" then Library:LoadConfig(name) end
     end)
     
-    -- Theme Settings
-    local ThemeToggle = ThemeSec:CreateToggle("Image Background", false, {Flag = "use_theme"}, function(val)
+    local ThemeToggle = ThemeSec:CreateToggle("Image BG", false, {Flag = "use_theme"}, function(val)
         Library.Config.UseThemeImage = val
         ThemeBg.Visible = val
-        if val then
-            local imgId = Library.Flags["theme_image"] or ""
-            if imgId ~= "" then
-                ThemeBg.Image = "rbxassetid://" .. imgId
-            end
-        end
     end)
     
-    local ThemeInput = ThemeSec:CreateTextbox("Image Asset ID", "123456789", {Flag = "theme_image"}, function(val)
+    local ThemeInput = ThemeSec:CreateTextbox("Asset ID", "123456789", {Flag = "theme_image"}, function(val)
         if Library.Config.UseThemeImage and val ~= "" then
             ThemeBg.Image = "rbxassetid://" .. val
             ThemeBg.Visible = true
         end
     end)
     
-    -- Theme dropdown (saved themes)
     local themeList = Library.SavedThemes
-    local ThemeDrop = ThemeSec:CreateDropdown("Saved Themes", #themeList > 0 and themeList or {"No themes"}, {}, function(selected)
-        if selected ~= "No themes" then
-            Library:LoadTheme(selected)
-        end
+    local ThemeDrop = ThemeSec:CreateDropdown("Themes", #themeList > 0 and themeList or {"No themes"}, {}, function(selected)
+        if selected ~= "No themes" then Library:LoadTheme(selected) end
     end)
     
     ThemeSec:CreateButton("Save Theme", function()
-        local name = ThemeInput.Set and Library.Flags["theme_image"] or "theme"
         Library:SaveTheme("theme_" .. os.time())
         local newList = Library.SavedThemes
         ThemeDrop.Refresh(#newList > 0 and newList or {"No themes"})
     end)
     
-    ThemeSec:CreateButton("Apply Theme", function()
+    ThemeSec:CreateButton("Apply", function()
         local selected = ThemeDrop.Set and Library.Flags["theme_dropdown"] or ""
-        if selected ~= "" and selected ~= "No themes" then
-            Library:LoadTheme(selected)
-        end
+        if selected ~= "" and selected ~= "No themes" then Library:LoadTheme(selected) end
     end)
     
     local ToggleColor = ThemeSec:CreateColorPicker("Toggle Color", Library.Config.OpenCloseColor, {Flag = "toggle_color"}, function(color)
@@ -2173,7 +2138,7 @@ function Library:CreateWindow(options)
         TogS.Color = color
     end)
     
-    MenuSec:CreateToggle("Show Watermark", true, {Flag = "show_watermark"}, function(val)
+    MenuSec:CreateToggle("Watermark", true, {Flag = "show_watermark"}, function(val)
         Library.WatermarkVisible = val
         WMBox.Visible = val
     end)
@@ -2184,6 +2149,9 @@ function Library:CreateWindow(options)
         WMGui:Destroy()
         TitleBox:Destroy()
         TabBox:Destroy()
+        Library.TitleBox = nil
+        Library.TabBox = nil
+        Library.MainFrame = nil
         if Library.KeybindConnections then
             for _, conn in pairs(Library.KeybindConnections) do
                 pcall(function() conn:Disconnect() end)
@@ -2191,27 +2159,23 @@ function Library:CreateWindow(options)
         end
     end)
     
-    MenuSec:CreateButton("Rejoin Server", function()
+    MenuSec:CreateButton("Rejoin", function()
         game:GetService("TeleportService"):Teleport(game.PlaceId, Players.LocalPlayer)
     end)
 
-    -- Keybind
+    -- Keybind - toggle with RightShift
     Library:SetKeybind(Enum.KeyCode.RightShift, function()
-        local vis = not Main.Visible
-        Main.Visible = vis
-        TitleBox.Visible = vis
-        TabBox.Visible = vis
+        if Library.MainFrame then
+            SetUIVisibility(not Library.MainFrame.Visible)
+        end
     end)
 
-    -- Select Dashboard by default
+    -- Select Dashboard
     DashTab.Page.Visible = true
     DashTab.Button.BackgroundTransparency = 0
     DashTab.Button.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-    DashTab.Label.TextTransparency = 0
-    DashTab.Label.TextColor3 = Color3.fromRGB(240, 240, 240)
     DashTab.Icon.ImageColor3 = Color3.fromRGB(240, 240, 240)
-    local dashWidth = math.max(36, 28 + DashTab.Label.TextBounds.X + 12)
-    DashTab.Button.Size = UDim2.new(0, dashWidth, 0, 28)
+    DashTab.Label.TextColor3 = Color3.fromRGB(240, 240, 240)
     
     Terminal.Visible = true
     Content.Size = UDim2.new(1, -24, 1, -150)
@@ -2222,7 +2186,6 @@ function Library:CreateWindow(options)
         DashTab.CurrentSubTab = DashTab.SubTabs[1]
     end
 
-    -- Initial terminal logs
     AddTerminalLog("Amira UI loaded")
     AddTerminalLog("Welcome, " .. Players.LocalPlayer.Name)
     AddTerminalLog("Place: " .. game.PlaceId)
@@ -2232,14 +2195,11 @@ function Library:CreateWindow(options)
     local mainAbs = Main.AbsolutePosition
     local mainSize = Main.AbsoluteSize
     TitleBox.Position = UDim2.new(0, mainAbs.X + 8, 0, mainAbs.Y - 44)
-    TabBox.Position = UDim2.new(0, mainAbs.X + mainSize.X / 2 - TabBox.AbsoluteSize.X / 2, 0, mainAbs.Y - 48)
+    TabBox.Position = UDim2.new(0, mainAbs.X + mainSize.X / 2 - TabBox.AbsoluteSize.X / 2, 0, mainAbs.Y - 52)
     UpdateTabBoxSize()
     
-    -- Show UI
     task.wait(0.3)
-    Main.Visible = true
-    TitleBox.Visible = true
-    TabBox.Visible = true
+    SetUIVisibility(true)
 
     return Window
 end

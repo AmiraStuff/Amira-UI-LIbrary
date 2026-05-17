@@ -107,7 +107,6 @@ local function GetTextWidth(text, fontSize, font)
     return #text * (fontSize * 0.6)
 end
 
--- Theme Presets
 local ThemePresets = {
     Dark = {accent = {150,150,150}, bg = {10,10,10}, section = {16,16,16}, text = {240,240,240}, subtext = {160,160,160}, toggle = {150,150,150}},
     Dracula = {accent = {189,147,249}, bg = {40,42,54}, section = {50,52,64}, text = {248,248,242}, subtext = {180,180,190}, toggle = {139,233,253}},
@@ -119,7 +118,6 @@ local ThemePresets = {
     Midnight = {accent = {100,100,255}, bg = {8,8,20}, section = {14,14,28}, text = {200,200,255}, subtext = {140,140,200}, toggle = {120,120,255}}
 }
 
--- Loading Screen
 local function ShowLoading(scriptName, done)
     local LGui = Instance.new("ScreenGui")
     LGui.Name = "AmiraLoading"
@@ -287,7 +285,6 @@ function Library:ApplyThemePreset(presetName)
     Library.Config.OpenCloseColor = Color3.new(preset.toggle[1]/255, preset.toggle[2]/255, preset.toggle[3]/255)
 end
 
--- Keybind System
 Library.Keybinds = {}; Library.KeybindConnections = {}
 function Library:SetKeybind(key, callback)
     if Library.KeybindConnections[key] then Library.KeybindConnections[key]:Disconnect() end
@@ -366,7 +363,6 @@ function Library:CreateWindow(options)
 
     local Content = Instance.new("Frame"); Content.Parent = Main; Content.BackgroundTransparency = 1; Content.Position = UDim2.new(0, 12, 0, 60); Content.Size = UDim2.new(1, -24, 1, -145)
 
-    -- Terminal
     local Terminal = Instance.new("Frame"); Terminal.Parent = Main; Terminal.BackgroundColor3 = Color3.fromRGB(11, 11, 11); Terminal.BorderSizePixel = 0; Terminal.Position = UDim2.new(0, 12, 1, -78); Terminal.Size = UDim2.new(1, -24, 0, 64); Terminal.Visible = false
     local TC = Instance.new("UICorner"); TC.CornerRadius = UDim.new(0, 6); TC.Parent = Terminal
     local TS = Instance.new("UIStroke"); TS.Parent = Terminal; TS.Color = Color3.fromRGB(30, 30, 30); TS.Thickness = 1
@@ -397,7 +393,6 @@ function Library:CreateWindow(options)
     local RFooter = Instance.new("TextLabel"); RFooter.Parent = Main; RFooter.BackgroundTransparency = 1; RFooter.Position = UDim2.new(0.6, -14, 1, -14); RFooter.Size = UDim2.new(0.4, 0, 0, 10)
     RFooter.Font = Enum.Font.GothamMedium; RFooter.Text = rightFooter; RFooter.TextColor3 = Color3.fromRGB(110, 110, 110); RFooter.TextSize = 9; RFooter.TextXAlignment = Enum.TextXAlignment.Right
 
-    -- Toggle Button
     local Toggle = Instance.new("ImageButton"); Toggle.Parent = ScreenGui; Toggle.BackgroundColor3 = Library.Config.OpenCloseColor; Toggle.BackgroundTransparency = 0.05
     Toggle.Position = UDim2.new(1, -60, 0, 140); Toggle.Size = UDim2.new(0, 48, 0, 48); Toggle.Image = "rbxassetid://84983817196455"; Toggle.ZIndex = 10000; Toggle.AutoButtonColor = false; Library.ToggleBtn = Toggle
     local TogC = Instance.new("UICorner"); TogC.CornerRadius = UDim.new(0, 14); TogC.Parent = Toggle
@@ -423,7 +418,7 @@ function Library:CreateWindow(options)
     end)
     Minimize.MouseButton1Click:Connect(function() SetUIVisibility(not Main.Visible) end)
 
-    -- Title Box (6px above UI)
+    -- Title Box (tight above UI)
     local TitleBox = Instance.new("Frame"); TitleBox.Name = "TitleBox"; TitleBox.Parent = ScreenGui; TitleBox.BackgroundColor3 = Color3.fromRGB(14, 14, 14); TitleBox.BackgroundTransparency = 0.05
     TitleBox.Size = UDim2.new(0, 0, 0, 34); TitleBox.BorderSizePixel = 0; TitleBox.ZIndex = 100; Library.TitleBox = TitleBox
     local TBC = Instance.new("UICorner"); TBC.CornerRadius = UDim.new(0, 9); TBC.Parent = TitleBox
@@ -437,7 +432,7 @@ function Library:CreateWindow(options)
     end
     UpdateTitleBox(); TitleMainLabel:GetPropertyChangedSignal("TextBounds"):Connect(UpdateTitleBox); TitleSuffixLabel:GetPropertyChangedSignal("TextBounds"):Connect(UpdateTitleBox)
     
-    -- Tab Box (6px above UI, centered independently)
+    -- Tab Box (tight above UI, centered independently)
     local TabBox = Instance.new("Frame"); TabBox.Name = "TabBox"; TabBox.Parent = ScreenGui; TabBox.BackgroundColor3 = Color3.fromRGB(16, 16, 16); TabBox.BackgroundTransparency = 0.06
     TabBox.Size = UDim2.new(0, 50, 0, 42); TabBox.BorderSizePixel = 0; TabBox.ZIndex = 100; Library.TabBox = TabBox
     local TabBC = Instance.new("UICorner"); TabBC.CornerRadius = UDim.new(0, 12); TabBC.Parent = TabBox
@@ -447,17 +442,16 @@ function Library:CreateWindow(options)
     
     local function UpdateTabBoxSize()
         local totalWidth = TabLayout.AbsoluteContentSize.X + 12; local newWidth = math.max(totalWidth, 50); TabBox.Size = UDim2.new(0, newWidth, 0, 42)
-        if Main then local mainAbs = Main.AbsolutePosition; local mainSize = Main.AbsoluteSize; TabBox.Position = UDim2.new(0, mainAbs.X + mainSize.X/2 - newWidth/2, 0, mainAbs.Y - 48) end
+        if Main then local mainAbs = Main.AbsolutePosition; local mainSize = Main.AbsoluteSize; TabBox.Position = UDim2.new(0, mainAbs.X + mainSize.X/2 - newWidth/2, 0, mainAbs.Y - 34) end
     end
     TabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateTabBoxSize)
 
-    -- Dragging
     local dragging, dragInput, dragStart, startPos
     local function updateDrag(input)
         local delta = input.Position - dragStart; Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         local mainAbs = Main.AbsolutePosition; local mainSize = Main.AbsoluteSize
-        TitleBox.Position = UDim2.new(0, mainAbs.X + 8, 0, mainAbs.Y - 40)
-        TabBox.Position = UDim2.new(0, mainAbs.X + mainSize.X/2 - TabBox.AbsoluteSize.X/2, 0, mainAbs.Y - 48)
+        TitleBox.Position = UDim2.new(0, mainAbs.X + 8, 0, mainAbs.Y - 30)
+        TabBox.Position = UDim2.new(0, mainAbs.X + mainSize.X/2 - TabBox.AbsoluteSize.X/2, 0, mainAbs.Y - 34)
     end
     Header.InputBegan:Connect(function(input) if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then dragging = true; dragStart = input.Position; startPos = Main.Position; input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end) end end)
     Header.InputChanged:Connect(function(input) if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then dragInput = input end end)
@@ -507,6 +501,7 @@ function Library:CreateWindow(options)
             Library:Tween(TabButton, 0.2, {BackgroundTransparency = 0, BackgroundColor3 = Color3.fromRGB(28, 28, 28), Size = UDim2.new(0, fullWidth, 0, 32)})
             Library:Tween(TabIcon, 0.2, {ImageColor3 = Color3.fromRGB(240, 240, 240), Position = UDim2.new(0, 8, 0.5, -10)})
             TabLabel.Visible = true
+            UpdateTabBoxSize()
             
             for _, st in pairs(Tab.SubTabs) do st.Button.Visible = true end
             if Tab.CurrentSubTab then Tab.CurrentSubTab.Page.Visible = true end
@@ -663,58 +658,117 @@ function Library:CreateWindow(options)
         table.insert(Window.Tabs, Tab); UpdateTabBoxSize(); return Tab
     end
 
-    -- DASHBOARD
+    -- Helper function for stat cards
+    local function CreateStatCard(parent, title, value, height)
+        local Card = Instance.new("Frame")
+        Card.Parent = parent; Card.BackgroundColor3 = Color3.fromRGB(18, 18, 18); Card.Size = UDim2.new(1, 0, 0, height or 70); Card.BorderSizePixel = 0
+        local Corner = Instance.new("UICorner"); Corner.CornerRadius = UDim.new(0, 8); Corner.Parent = Card
+        local Stroke = Instance.new("UIStroke"); Stroke.Parent = Card; Stroke.Color = Color3.fromRGB(38, 38, 38); Stroke.Thickness = 1
+        local Title = Instance.new("TextLabel"); Title.Parent = Card; Title.BackgroundTransparency = 1; Title.Position = UDim2.new(0, 14, 0, 10)
+        Title.Size = UDim2.new(1, -20, 0, 16); Title.Font = Enum.Font.GothamBold; Title.Text = title; Title.TextColor3 = Color3.fromRGB(220, 220, 220); Title.TextSize = 13; Title.TextXAlignment = Enum.TextXAlignment.Left
+        local Value = Instance.new("TextLabel"); Value.Parent = Card; Value.BackgroundTransparency = 1; Value.Position = UDim2.new(0, 14, 0, 34)
+        Value.Size = UDim2.new(1, -20, 0, 20); Value.Font = Enum.Font.GothamMedium; Value.Text = value; Value.TextColor3 = Color3.fromRGB(150, 150, 150); Value.TextSize = 12; Value.TextXAlignment = Enum.TextXAlignment.Left
+        return Value
+    end
+
+    -- DASHBOARD TAB
     local DashTab = Window:CreateTab("Dashboard", 0, "rbxassetid://84983817196455")
     local DashSub = DashTab:CreateSubTab("Home")
     
+    -- Player Section
     local PlayerSec = DashSub:CreateSection("Player", "Left")
-    local PF = Instance.new("Frame"); PF.Parent = PlayerSec.Container; PF.BackgroundTransparency = 1; PF.Size = UDim2.new(1, 0, 0, 60)
-    local PFP = Instance.new("ImageLabel"); PFP.Parent = PF; PFP.BackgroundTransparency = 1; PFP.Size = UDim2.new(0, 44, 0, 44); PFP.Image = Players:GetUserThumbnailAsync(Players.LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420); PFP.ScaleType = Enum.ScaleType.Fit
-    local PFPc = Instance.new("UICorner"); PFPc.CornerRadius = UDim.new(1, 0); PFPc.Parent = PFP
-    local PFPstroke = Instance.new("UIStroke"); PFPstroke.Parent = PFP; PFPstroke.Color = Color3.fromRGB(60, 60, 60); PFPstroke.Thickness = 1
-    local UN = Instance.new("TextLabel"); UN.Parent = PF; UN.BackgroundTransparency = 1; UN.Position = UDim2.new(0, 54, 0, 2); UN.Size = UDim2.new(1, -54, 0, 16); UN.Font = Enum.Font.GothamBold; UN.Text = Players.LocalPlayer.Name; UN.TextColor3 = Color3.fromRGB(240, 240, 240); UN.TextSize = 13; UN.TextXAlignment = Enum.TextXAlignment.Left
-    local DN = Instance.new("TextLabel"); DN.Parent = PF; DN.BackgroundTransparency = 1; DN.Position = UDim2.new(0, 54, 0, 20); DN.Size = UDim2.new(1, -54, 0, 14); DN.Font = Enum.Font.GothamMedium; DN.Text = "@" .. Players.LocalPlayer.DisplayName; DN.TextColor3 = Color3.fromRGB(150, 150, 150); DN.TextSize = 11; DN.TextXAlignment = Enum.TextXAlignment.Left
-    local UID = Instance.new("TextLabel"); UID.Parent = PF; UID.BackgroundTransparency = 1; UID.Position = UDim2.new(0, 54, 0, 36); UID.Size = UDim2.new(1, -54, 0, 13); UID.Font = Enum.Font.GothamMedium; UID.Text = "ID: " .. Players.LocalPlayer.UserId; UID.TextColor3 = Color3.fromRGB(130, 130, 130); UID.TextSize = 10; UID.TextXAlignment = Enum.TextXAlignment.Left
-    local PremBadge = Instance.new("TextLabel"); PremBadge.Parent = PF; PremBadge.BackgroundTransparency = 1; PremBadge.Position = UDim2.new(0, 54, 0, 48); PremBadge.Size = UDim2.new(1, -54, 0, 13); PremBadge.Font = Enum.Font.GothamBold; PremBadge.Text = Library.IsPremium and "PREMIUM" or "FREE"; PremBadge.TextColor3 = Library.IsPremium and Color3.fromRGB(255, 215, 0) or Color3.fromRGB(150, 150, 150); PremBadge.TextSize = 10; PremBadge.TextXAlignment = Enum.TextXAlignment.Left
-    PlayerSec.Container.Size = UDim2.new(1, -24, 0, PlayerSec.Container.Size.Y.Offset + 60)
-    
+    local Card = Instance.new("Frame"); Card.Parent = PlayerSec.Container; Card.BackgroundColor3 = Color3.fromRGB(18, 18, 18); Card.Size = UDim2.new(1, 0, 0, 90); Card.BorderSizePixel = 0
+    local CardCorner = Instance.new("UICorner"); CardCorner.CornerRadius = UDim.new(0, 8); CardCorner.Parent = Card
+    local Glow = Instance.new("UIStroke"); Glow.Parent = Card; Glow.Color = Color3.fromRGB(40, 40, 40); Glow.Thickness = 1
+    local PFP = Instance.new("ImageLabel"); PFP.Parent = Card; PFP.BackgroundTransparency = 1; PFP.Position = UDim2.new(0, 14, 0.5, -28); PFP.Size = UDim2.new(0, 56, 0, 56)
+    PFP.Image = Players:GetUserThumbnailAsync(Players.LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+    local PFPCorner = Instance.new("UICorner"); PFPCorner.CornerRadius = UDim.new(1, 0); PFPCorner.Parent = PFP
+    local PFPStroke = Instance.new("UIStroke"); PFPStroke.Parent = PFP; PFPStroke.Color = Color3.fromRGB(80, 80, 80); PFPStroke.Thickness = 1.5
+    local Name = Instance.new("TextLabel"); Name.Parent = Card; Name.BackgroundTransparency = 1; Name.Position = UDim2.new(0, 84, 0, 16)
+    Name.Size = UDim2.new(1, -90, 0, 20); Name.Font = Enum.Font.GothamBold; Name.Text = Players.LocalPlayer.Name; Name.TextColor3 = Color3.fromRGB(240, 240, 240); Name.TextSize = 16; Name.TextXAlignment = Enum.TextXAlignment.Left
+    local Display = Instance.new("TextLabel"); Display.Parent = Card; Display.BackgroundTransparency = 1; Display.Position = UDim2.new(0, 84, 0, 38)
+    Display.Size = UDim2.new(1, -90, 0, 16); Display.Font = Enum.Font.GothamMedium; Display.Text = "@"..Players.LocalPlayer.DisplayName; Display.TextColor3 = Color3.fromRGB(140, 140, 140); Display.TextSize = 12; Display.TextXAlignment = Enum.TextXAlignment.Left
+    local Badge = Instance.new("TextLabel"); Badge.Parent = Card; Badge.BackgroundColor3 = Color3.fromRGB(28, 28, 28); Badge.Position = UDim2.new(0, 84, 0, 60)
+    Badge.Size = UDim2.new(0, 60, 0, 18); Badge.Font = Enum.Font.GothamBold; Badge.Text = Library.IsPremium and "PRO" or "FREE"
+    Badge.TextColor3 = Library.IsPremium and Color3.fromRGB(255, 215, 0) or Color3.fromRGB(180, 180, 180); Badge.TextSize = 10
+    local BadgeCorner = Instance.new("UICorner"); BadgeCorner.CornerRadius = UDim.new(0, 4); BadgeCorner.Parent = Badge
+    PlayerSec.Container.Size = UDim2.new(1, -24, 0, PlayerSec.Container.Size.Y.Offset + 90)
+
+    -- Game Section
     local GameSec = DashSub:CreateSection("Game", "Left")
-    local GF = Instance.new("Frame"); GF.Parent = GameSec.Container; GF.BackgroundTransparency = 1; GF.Size = UDim2.new(1, 0, 0, 55)
-    local GI = Instance.new("ImageLabel"); GI.Parent = GF; GI.BackgroundTransparency = 1; GI.Size = UDim2.new(0, 40, 0, 40); GI.ScaleType = Enum.ScaleType.Fit
-    local GIc = Instance.new("UICorner"); GIc.CornerRadius = UDim.new(0, 6); GIc.Parent = GI
-    local GIstroke = Instance.new("UIStroke"); GIstroke.Parent = GI; GIstroke.Color = Color3.fromRGB(50, 50, 50); GIstroke.Thickness = 1
-    task.spawn(function() pcall(function() GI.Image = "rbxthumb://type=GameIcon&id=" .. game.PlaceId .. "&w=256&h=256" end) end)
-    local GN = Instance.new("TextLabel"); GN.Parent = GF; GN.BackgroundTransparency = 1; GN.Position = UDim2.new(0, 50, 0, 0); GN.Size = UDim2.new(1, -50, 0, 16); GN.Font = Enum.Font.GothamBold; GN.Text = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name; GN.TextColor3 = Color3.fromRGB(220, 220, 220); GN.TextSize = 12; GN.TextXAlignment = Enum.TextXAlignment.Left; GN.TextTruncate = Enum.TextTruncate.AtEnd
-    local GID = Instance.new("TextLabel"); GID.Parent = GF; GID.BackgroundTransparency = 1; GID.Position = UDim2.new(0, 50, 0, 18); GID.Size = UDim2.new(1, -50, 0, 14); GID.Font = Enum.Font.GothamMedium; GID.Text = "Place: " .. game.PlaceId; GID.TextColor3 = Color3.fromRGB(130, 130, 130); GID.TextSize = 10; GID.TextXAlignment = Enum.TextXAlignment.Left
-    local PCnt = Instance.new("TextLabel"); PCnt.Parent = GF; PCnt.BackgroundTransparency = 1; PCnt.Position = UDim2.new(0, 50, 0, 33); PCnt.Size = UDim2.new(1, -50, 0, 14); PCnt.Font = Enum.Font.GothamMedium; PCnt.Text = "Players: " .. #Players:GetPlayers(); PCnt.TextColor3 = Color3.fromRGB(130, 130, 130); PCnt.TextSize = 10; PCnt.TextXAlignment = Enum.TextXAlignment.Left
-    GameSec.Container.Size = UDim2.new(1, -24, 0, GameSec.Container.Size.Y.Offset + 55)
-    
+    local GameCard = Instance.new("Frame"); GameCard.Parent = GameSec.Container; GameCard.BackgroundColor3 = Color3.fromRGB(18, 18, 18); GameCard.Size = UDim2.new(1, 0, 0, 70); GameCard.BorderSizePixel = 0
+    local GameCardCorner = Instance.new("UICorner"); GameCardCorner.CornerRadius = UDim.new(0, 8); GameCardCorner.Parent = GameCard
+    local GameCardStroke = Instance.new("UIStroke"); GameCardStroke.Parent = GameCard; GameCardStroke.Color = Color3.fromRGB(38, 38, 38); GameCardStroke.Thickness = 1
+    local GameIcon = Instance.new("ImageLabel"); GameIcon.Parent = GameCard; GameIcon.BackgroundTransparency = 1; GameIcon.Position = UDim2.new(0, 12, 0.5, -18); GameIcon.Size = UDim2.new(0, 36, 0, 36)
+    GameIcon.ScaleType = Enum.ScaleType.Fit
+    local GICorner = Instance.new("UICorner"); GICorner.CornerRadius = UDim.new(0, 6); GICorner.Parent = GameIcon
+    task.spawn(function()
+        pcall(function()
+            local success, result = pcall(function()
+                return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId)
+            end)
+            if success and result then
+                local iconId = result.IconImageAssetId
+                if iconId and iconId > 0 then
+                    GameIcon.Image = "rbxassetid://" .. iconId
+                else
+                    GameIcon.Image = "rbxthumb://type=GameIcon&id=" .. game.PlaceId .. "&w=256&h=256"
+                end
+            end
+        end)
+    end)
+    local GameTitle = Instance.new("TextLabel"); GameTitle.Parent = GameCard; GameTitle.BackgroundTransparency = 1; GameTitle.Position = UDim2.new(0, 60, 0, 10)
+    GameTitle.Size = UDim2.new(1, -70, 0, 16); GameTitle.Font = Enum.Font.GothamBold; GameTitle.Text = "Loading..."; GameTitle.TextColor3 = Color3.fromRGB(220, 220, 220); GameTitle.TextSize = 12; GameTitle.TextXAlignment = Enum.TextXAlignment.Left; GameTitle.TextTruncate = Enum.TextTruncate.AtEnd
+    local GameID = Instance.new("TextLabel"); GameID.Parent = GameCard; GameID.BackgroundTransparency = 1; GameID.Position = UDim2.new(0, 60, 0, 28)
+    GameID.Size = UDim2.new(1, -70, 0, 14); GameID.Font = Enum.Font.GothamMedium; GameID.Text = "ID: " .. game.PlaceId; GameID.TextColor3 = Color3.fromRGB(130, 130, 130); GameID.TextSize = 10; GameID.TextXAlignment = Enum.TextXAlignment.Left
+    local GamePlayers = Instance.new("TextLabel"); GamePlayers.Parent = GameCard; GamePlayers.BackgroundTransparency = 1; GamePlayers.Position = UDim2.new(0, 60, 0, 44)
+    GamePlayers.Size = UDim2.new(1, -70, 0, 14); GamePlayers.Font = Enum.Font.GothamMedium; GamePlayers.Text = "Players: " .. #Players:GetPlayers(); GamePlayers.TextColor3 = Color3.fromRGB(130, 130, 130); GamePlayers.TextSize = 10; GamePlayers.TextXAlignment = Enum.TextXAlignment.Left
+    task.spawn(function()
+        pcall(function()
+            local info = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId)
+            GameTitle.Text = info.Name
+        end)
+    end)
+    GameSec.Container.Size = UDim2.new(1, -24, 0, GameSec.Container.Size.Y.Offset + 70)
+
+    -- Status Section
     local StatusSec = DashSub:CreateSection("Status", "Right")
-    local SF = Instance.new("Frame"); SF.Parent = StatusSec.Container; SF.BackgroundTransparency = 1; SF.Size = UDim2.new(1, 0, 0, 40)
-    local Dev = Instance.new("TextLabel"); Dev.Parent = SF; Dev.BackgroundTransparency = 1; Dev.Size = UDim2.new(1, 0, 0, 14); Dev.Font = Enum.Font.GothamMedium; Dev.Text = "Device: " .. GetDevice(); Dev.TextColor3 = Color3.fromRGB(150, 150, 150); Dev.TextSize = 11; Dev.TextXAlignment = Enum.TextXAlignment.Left
-    local Fps = Instance.new("TextLabel"); Fps.Parent = SF; Fps.BackgroundTransparency = 1; Fps.Position = UDim2.new(0, 0, 0, 16); Fps.Size = UDim2.new(1, 0, 0, 14); Fps.Font = Enum.Font.GothamMedium; Fps.Text = "FPS: " .. GetFPS(); Fps.TextColor3 = Color3.fromRGB(150, 150, 150); Fps.TextSize = 11; Fps.TextXAlignment = Enum.TextXAlignment.Left
-    StatusSec.Container.Size = UDim2.new(1, -24, 0, StatusSec.Container.Size.Y.Offset + 40)
-    
+    local FPSLabel = CreateStatCard(StatusSec.Container, "Performance", "FPS: "..GetFPS().."\nDevice: "..GetDevice(), 80)
+    task.spawn(function() while task.wait(1) do FPSLabel.Text = "FPS: "..GetFPS().."\nDevice: "..GetDevice() end end)
+    StatusSec.Container.Size = UDim2.new(1, -24, 0, StatusSec.Container.Size.Y.Offset + 80)
+
+    -- Friends Section
     local FriendsSec = DashSub:CreateSection("Friends", "Right")
-    local FF = Instance.new("Frame"); FF.Parent = FriendsSec.Container; FF.BackgroundTransparency = 1; FF.Size = UDim2.new(1, 0, 0, 35)
-    local TF = Instance.new("TextLabel"); TF.Parent = FF; TF.BackgroundTransparency = 1; TF.Size = UDim2.new(1, 0, 0, 14); TF.Font = Enum.Font.GothamMedium; TF.Text = "Total: Loading..."; TF.TextColor3 = Color3.fromRGB(150, 150, 150); TF.TextSize = 11; TF.TextXAlignment = Enum.TextXAlignment.Left
-    local OF = Instance.new("TextLabel"); OF.Parent = FF; OF.BackgroundTransparency = 1; OF.Position = UDim2.new(0, 0, 0, 16); OF.Size = UDim2.new(1, 0, 0, 14); OF.Font = Enum.Font.GothamMedium; OF.Text = "Online: Loading..."; OF.TextColor3 = Color3.fromRGB(150, 150, 150); OF.TextSize = 11; OF.TextXAlignment = Enum.TextXAlignment.Left
-    task.spawn(function() local s, friends = pcall(function() return Players.LocalPlayer:GetFriendsAsync(200) end); if s then TF.Text = "Total: " .. #friends; local online = 0; for _, f in pairs(friends) do if f.IsOnline then online += 1 end end; OF.Text = "Online: " .. online end end)
-    FriendsSec.Container.Size = UDim2.new(1, -24, 0, FriendsSec.Container.Size.Y.Offset + 35)
-    
+    local FriendsLabel = CreateStatCard(FriendsSec.Container, "Social", "Players: "..#Players:GetPlayers().."\nFriends: Loading...", 80)
+    task.spawn(function()
+        while task.wait(3) do
+            local s, friends = pcall(function() return Players.LocalPlayer:GetFriendsAsync(200) end)
+            local onlineCount = 0
+            if s then
+                for _, f in pairs(friends) do if f.IsOnline then onlineCount += 1 end end
+                FriendsLabel.Text = "Players: "..#Players:GetPlayers().."\nOnline: "..onlineCount.." / "..#friends
+            end
+        end
+    end)
+    FriendsSec.Container.Size = UDim2.new(1, -24, 0, FriendsSec.Container.Size.Y.Offset + 80)
+
+    -- Updates Section
+    local UpdateSec = DashSub:CreateSection("Updates", "Right")
+    local UpdateLabel = CreateStatCard(UpdateSec.Container, "Latest Update", "Advanced UI Loaded Successfully", 65)
+    UpdateSec.Container.Size = UDim2.new(1, -24, 0, UpdateSec.Container.Size.Y.Offset + 65)
+
+    -- Discord Section
     local DiscordSec = DashSub:CreateSection("Discord", "Left")
-    local DF = Instance.new("Frame"); DF.Parent = DiscordSec.Container; DF.BackgroundTransparency = 1; DF.Size = UDim2.new(1, 0, 0, 45)
-    local DM = Instance.new("TextLabel"); DM.Parent = DF; DM.BackgroundTransparency = 1; DM.Position = UDim2.new(0, 0, 0, 4); DM.Size = UDim2.new(1, 0, 0, 14); DM.Font = Enum.Font.GothamMedium; DM.Text = Library.DiscordMembers > 0 and "Members: " .. Library.DiscordMembers or ""; DM.TextColor3 = Color3.fromRGB(150, 150, 150); DM.TextSize = 11; DM.TextXAlignment = Enum.TextXAlignment.Left
-    local DBtn = Instance.new("TextButton"); DBtn.Parent = DF; DBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242); DBtn.BorderSizePixel = 0; DBtn.Position = UDim2.new(0, 0, 0, 24); DBtn.Size = UDim2.new(0, 120, 0, 22); DBtn.Font = Enum.Font.GothamBold; DBtn.Text = "Join Discord"; DBtn.TextColor3 = Color3.fromRGB(255, 255, 255); DBtn.TextSize = 10; DBtn.AutoButtonColor = false
-    local DBtnC = Instance.new("UICorner"); DBtnC.CornerRadius = UDim.new(0, 5); DBtnC.Parent = DBtn
-    DBtn.MouseButton1Click:Connect(function() if Library.DiscordInvite ~= "" then setclipboard(Library.DiscordInvite); Library:Notify("Discord", "Invite copied!", 2) end end)
-    DiscordSec.Container.Size = UDim2.new(1, -24, 0, DiscordSec.Container.Size.Y.Offset + 45)
-    
-    local UpdatesSec = DashSub:CreateSection("Updates", "Right")
-    local UF = Instance.new("Frame"); UF.Parent = UpdatesSec.Container; UF.BackgroundTransparency = 1; UF.Size = UDim2.new(1, 0, 0, 35)
-    local UL = Instance.new("TextLabel"); UL.Parent = UF; UL.BackgroundTransparency = 1; UL.Size = UDim2.new(1, 0, 0, 0); UL.Font = Enum.Font.GothamMedium; UL.Text = "No updates yet"; UL.TextColor3 = Color3.fromRGB(130, 130, 130); UL.TextSize = 10; UL.TextXAlignment = Enum.TextXAlignment.Left; UL.TextWrapped = true; UL.AutomaticSize = Enum.AutomaticSize.Y
-    UL:GetPropertyChangedSignal("TextBounds"):Connect(function() UF.Size = UDim2.new(1, 0, 0, UL.TextBounds.Y) end)
-    UpdatesSec.Container.Size = UDim2.new(1, -24, 0, UpdatesSec.Container.Size.Y.Offset + 35)
+    local DiscordCard = Instance.new("Frame"); DiscordCard.Parent = DiscordSec.Container; DiscordCard.BackgroundColor3 = Color3.fromRGB(18, 18, 18); DiscordCard.Size = UDim2.new(1, 0, 0, 70); DiscordCard.BorderSizePixel = 0
+    local DCorner = Instance.new("UICorner"); DCorner.CornerRadius = UDim.new(0, 8); DCorner.Parent = DiscordCard
+    local DStroke = Instance.new("UIStroke"); DStroke.Parent = DiscordCard; DStroke.Color = Color3.fromRGB(40, 40, 40); DStroke.Thickness = 1
+    local DM = Instance.new("TextLabel"); DM.Parent = DiscordCard; DM.BackgroundTransparency = 1; DM.Position = UDim2.new(0, 14, 0, 10)
+    DM.Size = UDim2.new(1, -20, 0, 16); DM.Font = Enum.Font.GothamBold; DM.Text = Library.DiscordMembers > 0 and "Members: " .. Library.DiscordMembers or "Discord"; DM.TextColor3 = Color3.fromRGB(220, 220, 220); DM.TextSize = 12; DM.TextXAlignment = Enum.TextXAlignment.Left
+    local Join = Instance.new("TextButton"); Join.Parent = DiscordCard; Join.BackgroundColor3 = Color3.fromRGB(88, 101, 242); Join.Position = UDim2.new(0, 14, 0, 34)
+    Join.Size = UDim2.new(0, 140, 0, 26); Join.Font = Enum.Font.GothamBold; Join.Text = "Join Discord"; Join.TextColor3 = Color3.fromRGB(255, 255, 255); Join.TextSize = 11; Join.BorderSizePixel = 0
+    local JoinCorner = Instance.new("UICorner"); JoinCorner.CornerRadius = UDim.new(0, 6); JoinCorner.Parent = Join
+    Join.MouseButton1Click:Connect(function() if Library.DiscordInvite ~= "" then setclipboard(Library.DiscordInvite); Library:Notify("Discord", "Copied Invite", 2) end end)
+    DiscordSec.Container.Size = UDim2.new(1, -24, 0, DiscordSec.Container.Size.Y.Offset + 70)
 
     -- SETTINGS TAB
     local SettingsTab = Window:CreateTab("Settings", 999)
@@ -731,7 +785,6 @@ function Library:CreateWindow(options)
     ConfigsSec:CreateButton("Save Config", function() local name = Library.Flags["config_name_input"] or "default"; Library:SaveConfig(name); RefreshConfigDropdown() end)
     ConfigsSec:CreateButton("Load Config", function() local name = Library.Flags["config_name_input"] or ""; if name ~= "" then Library:LoadConfig(name) end end)
     
-    -- Theme presets
     local presetNames = {}; for name, _ in pairs(ThemePresets) do table.insert(presetNames, name) end
     local ThemePresetDrop = ThemeSec:CreateDropdown("Presets", presetNames, {}, function(selected)
         Library:ApplyThemePreset(selected); Toggle.BackgroundColor3 = Library.Config.OpenCloseColor; TogS.Color = Library.Config.OpenCloseColor; Main.BackgroundColor3 = Library.Config.BackgroundColor
@@ -768,8 +821,8 @@ function Library:CreateWindow(options)
     
     task.wait(0.1)
     local mainAbs = Main.AbsolutePosition; local mainSize = Main.AbsoluteSize
-    TitleBox.Position = UDim2.new(0, mainAbs.X + 8, 0, mainAbs.Y - 40)  -- 6px above UI
-    TabBox.Position = UDim2.new(0, mainAbs.X + mainSize.X/2 - TabBox.AbsoluteSize.X/2, 0, mainAbs.Y - 48)  -- 6px above UI, centered
+    TitleBox.Position = UDim2.new(0, mainAbs.X + 8, 0, mainAbs.Y - 30)
+    TabBox.Position = UDim2.new(0, mainAbs.X + mainSize.X/2 - TabBox.AbsoluteSize.X/2, 0, mainAbs.Y - 34)
     UpdateTabBoxSize()
     
     task.wait(0.3); SetUIVisibility(true)

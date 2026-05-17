@@ -48,7 +48,10 @@ local Library = {
     ChatApiUrl = "https://v0-roblox-chat-api.vercel.app/api/chat/messages",
     ChatLastTimestamp = 0,
     ChatProcessedIds = {},
-    ChatMessages = {}
+    ChatMessages = {},
+    StreamerMode = false,
+    CustomUsername = "",
+    CustomDisplayName = ""
 }
 
 pcall(function() makefolder(Library.Directory) end)
@@ -62,6 +65,20 @@ local function GetHWID()
     end)
     if success then Library.HWID = result end
     return Library.HWID
+end
+
+local function GetSafeName()
+    if Library.StreamerMode and Library.CustomUsername ~= "" then
+        return Library.CustomUsername
+    end
+    return Players.LocalPlayer.Name
+end
+
+local function GetSafeDisplayName()
+    if Library.StreamerMode and Library.CustomDisplayName ~= "" then
+        return Library.CustomDisplayName
+    end
+    return Players.LocalPlayer.DisplayName
 end
 
 local function LoadSavedThemes()
@@ -96,15 +113,11 @@ end
 
 local FPS = 60
 local Last = tick()
-
 RunService.RenderStepped:Connect(function()
     FPS = math.floor(1 / (tick() - Last))
     Last = tick()
 end)
-
-local function GetFPS()
-    return FPS
-end
+local function GetFPS() return FPS end
 
 local function GetViewportSize()
     local camera = workspace.CurrentCamera
@@ -121,38 +134,10 @@ local function GetTextWidth(text, fontSize, font)
 end
 
 local ThemePresets = {
-    Default = {
-        accent = {150,150,150},
-        bg = {10,10,10},
-        section = {18,18,18},
-        text = {240,240,240},
-        subtext = {170,170,170},
-        toggle = {170,170,170}
-    },
-    Nebula = {
-        accent = {120,140,255},
-        bg = {8,10,18},
-        section = {18,22,35},
-        text = {230,230,255},
-        subtext = {140,150,190},
-        toggle = {120,140,255}
-    },
-    Crimson = {
-        accent = {255,90,120},
-        bg = {18,8,10},
-        section = {30,14,18},
-        text = {255,220,225},
-        subtext = {200,140,150},
-        toggle = {255,90,120}
-    },
-    Emerald = {
-        accent = {90,255,170},
-        bg = {8,16,12},
-        section = {14,26,20},
-        text = {220,255,235},
-        subtext = {140,190,160},
-        toggle = {90,255,170}
-    },
+    Default = {accent = {150,150,150}, bg = {10,10,10}, section = {18,18,18}, text = {240,240,240}, subtext = {170,170,170}, toggle = {170,170,170}},
+    Nebula = {accent = {120,140,255}, bg = {8,10,18}, section = {18,22,35}, text = {230,230,255}, subtext = {140,150,190}, toggle = {120,140,255}},
+    Crimson = {accent = {255,90,120}, bg = {18,8,10}, section = {30,14,18}, text = {255,220,225}, subtext = {200,140,150}, toggle = {255,90,120}},
+    Emerald = {accent = {90,255,170}, bg = {8,16,12}, section = {14,26,20}, text = {220,255,235}, subtext = {140,190,160}, toggle = {90,255,170}},
     Dark = {accent = {150,150,150}, bg = {10,10,10}, section = {16,16,16}, text = {240,240,240}, subtext = {160,160,160}, toggle = {150,150,150}},
     Dracula = {accent = {189,147,249}, bg = {40,42,54}, section = {50,52,64}, text = {248,248,242}, subtext = {180,180,190}, toggle = {139,233,253}},
     Moon = {accent = {130,170,255}, bg = {15,18,30}, section = {22,25,40}, text = {220,230,255}, subtext = {150,160,200}, toggle = {130,170,255}},
@@ -167,7 +152,7 @@ function Library:SendChatMessage(message)
     if not message or message == "" then return false end
     local success = pcall(function()
         local data = {
-            username = tostring(Players.LocalPlayer.Name),
+            username = tostring(GetSafeName()),
             message = tostring(message),
             userid = tostring(Players.LocalPlayer.UserId),
             time = os.time()
@@ -186,18 +171,23 @@ end
 function Library:PollChatMessages()
     local success, result = pcall(function()
         local response
-        if syn and syn.request then
-            response = syn.request({Url = Library.ChatApiUrl, Method = "GET"})
-        elseif http_request then
-            response = http_request({Url = Library.ChatApiUrl, Method = "GET"})
-        elseif request then
-            response = request({Url = Library.ChatApiUrl, Method = "GET"})
-        end
+        if syn and syn.request then response = syn.request({Url = Library.ChatApiUrl, Method = "GET"})
+        elseif http_request then response = http_request({Url = Library.ChatApiUrl, Method = "GET"})
+        elseif request then response = request({Url = Library.ChatApiUrl, Method = "GET"}) end
         if response and response.Body then return HttpService:JSONDecode(response.Body) end
         return {}
     end)
     if success and result then return result.messages or result end
     return {}
+end
+
+function Library:RemoveFromChat()
+    pcall(function()
+        local data = {username = tostring(GetSafeName()), userid = tostring(Players.LocalPlayer.UserId), action = "leave"}
+        if syn and syn.request then syn.request({Url = Library.ChatApiUrl .. "/leave", Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)})
+        elseif http_request then http_request({Url = Library.ChatApiUrl .. "/leave", Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)})
+        elseif request then request({Url = Library.ChatApiUrl .. "/leave", Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end
+    end)
 end
 
 function Library:AddChatMessage(username, message)
@@ -221,7 +211,7 @@ local function ShowLoading(scriptName, done)
     local PFP = Instance.new("ImageLabel"); PFP.Parent = Box; PFP.BackgroundTransparency = 1; PFP.Position = UDim2.new(0.5, -pfpSize/2, 0, pfpY); PFP.Size = UDim2.new(0, pfpSize, 0, pfpSize); PFP.Image = Players:GetUserThumbnailAsync(Players.LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420); PFP.ScaleType = Enum.ScaleType.Fit
     local PC = Instance.new("UICorner"); PC.CornerRadius = UDim.new(1, 0); PC.Parent = PFP; local PS = Instance.new("UIStroke"); PS.Parent = PFP; PS.Color = Color3.fromRGB(60, 60, 60); PS.Thickness = 2
     local nameY = pfpY + pfpSize + 10
-    local UName = Instance.new("TextLabel"); UName.Parent = Box; UName.BackgroundTransparency = 1; UName.Position = UDim2.new(0, 0, 0, nameY); UName.Size = UDim2.new(1, 0, 0, math.clamp(boxHeight * 0.06, 16, 22)); UName.Font = Enum.Font.GothamBold; UName.Text = Players.LocalPlayer.Name; UName.TextColor3 = Color3.fromRGB(240, 240, 240); UName.TextSize = math.clamp(boxWidth * 0.05, 13, 16)
+    local UName = Instance.new("TextLabel"); UName.Parent = Box; UName.BackgroundTransparency = 1; UName.Position = UDim2.new(0, 0, 0, nameY); UName.Size = UDim2.new(1, 0, 0, math.clamp(boxHeight * 0.06, 16, 22)); UName.Font = Enum.Font.GothamBold; UName.Text = GetSafeName(); UName.TextColor3 = Color3.fromRGB(240, 240, 240); UName.TextSize = math.clamp(boxWidth * 0.05, 13, 16)
     local Plan = Instance.new("TextLabel"); Plan.Parent = Box; Plan.BackgroundTransparency = 1; Plan.Position = UDim2.new(0, 0, 0, nameY + 22); Plan.Size = UDim2.new(1, 0, 0, math.clamp(boxHeight * 0.05, 14, 18)); Plan.Font = Enum.Font.GothamMedium; Plan.Text = "Plan: " .. (Library.IsPremium and "Premium" or "Free"); Plan.TextColor3 = Color3.fromRGB(150, 150, 150); Plan.TextSize = math.clamp(boxWidth * 0.04, 11, 13)
     task.wait(3); LGui:Destroy(); if done then done() end
 end
@@ -258,7 +248,7 @@ end
 -- Config Management
 function Library:SaveConfig(name) local data = {}; for flag, value in pairs(Library.Flags) do if typeof(value) == "Color3" then data[flag] = {r = value.R, g = value.G, b = value.B} else data[flag] = value end end; writefile(Library.Directory .. "/configs/" .. name .. ".cfg", HttpService:JSONEncode(data)); Library:Notify("Config", "Saved: " .. name, 2) end
 function Library:LoadConfig(name) local path = Library.Directory .. "/configs/" .. name .. ".cfg"; if not isfile(path) then Library:Notify("Config", "Not found", 2); return end; local data = HttpService:JSONDecode(readfile(path)); for flag, value in pairs(data) do local actualValue = value; if type(value) == "table" and value.r then actualValue = Color3.new(value.r, value.g, value.b) end; if Library.Callbacks[flag] then Library.Callbacks[flag](actualValue) end end; Library:Notify("Config", "Loaded: " .. name, 2) end
-function Library:GetConfigs() local list = {}; pcall(function() for _, file in pairs(listfiles(Library.Directory .. "/configs")) do local name = file:gsub(Library.Directory .. "/configs\\", ""):gsub(".cfg", ""); name = name; if not table.find(list, name) then table.insert(list, name) end end end); return list end
+function Library:GetConfigs() local list = {}; pcall(function() for _, file in pairs(listfiles(Library.Directory .. "/configs")) do local name = file:gsub(Library.Directory .. "/configs\\", ""):gsub(".cfg", ""); if not table.find(list, name) then table.insert(list, name) end end end); return list end
 function Library:SaveTheme(name) local theme = {accent = {Library.Config.AccentColor.R, Library.Config.AccentColor.G, Library.Config.AccentColor.B}, bg = {Library.Config.BackgroundColor.R, Library.Config.BackgroundColor.G, Library.Config.BackgroundColor.B}, section = {Library.Config.SectionColor.R, Library.Config.SectionColor.G, Library.Config.SectionColor.B}, text = {Library.Config.TextColor.R, Library.Config.TextColor.G, Library.Config.TextColor.B}, subtext = {Library.Config.SubTextColor.R, Library.Config.SubTextColor.G, Library.Config.SubTextColor.B}, toggle = {Library.Config.OpenCloseColor.R, Library.Config.OpenCloseColor.G, Library.Config.OpenCloseColor.B}, themeImage = Library.Config.ThemeImage, useTheme = Library.Config.UseThemeImage}; writefile(Library.Directory .. "/themes/" .. name .. ".json", HttpService:JSONEncode(theme)); LoadSavedThemes(); Library:Notify("Theme", "Saved", 2) end
 function Library:LoadTheme(name) local path = Library.Directory .. "/themes/" .. name .. ".json"; if not isfile(path) then return end; local theme = HttpService:JSONDecode(readfile(path)); if theme.accent then Library.Config.AccentColor = Color3.new(theme.accent[1], theme.accent[2], theme.accent[3]) end; if theme.bg then Library.Config.BackgroundColor = Color3.new(theme.bg[1], theme.bg[2], theme.bg[3]) end; if theme.section then Library.Config.SectionColor = Color3.new(theme.section[1], theme.section[2], theme.section[3]) end; if theme.text then Library.Config.TextColor = Color3.new(theme.text[1], theme.text[2], theme.text[3]) end; if theme.subtext then Library.Config.SubTextColor = Color3.new(theme.subtext[1], theme.subtext[2], theme.subtext[3]) end; if theme.toggle then Library.Config.OpenCloseColor = Color3.new(theme.toggle[1], theme.toggle[2], theme.toggle[3]) end; if theme.themeImage then Library.Config.ThemeImage = theme.themeImage end; if theme.useTheme ~= nil then Library.Config.UseThemeImage = theme.useTheme end end
 function Library:ApplyThemePreset(presetName) local preset = ThemePresets[presetName]; if not preset then return end; Library.Config.AccentColor = Color3.new(preset.accent[1]/255, preset.accent[2]/255, preset.accent[3]/255); Library.Config.BackgroundColor = Color3.new(preset.bg[1]/255, preset.bg[2]/255, preset.bg[3]/255); Library.Config.SectionColor = Color3.new(preset.section[1]/255, preset.section[2]/255, preset.section[3]/255); Library.Config.TextColor = Color3.new(preset.text[1]/255, preset.text[2]/255, preset.text[3]/255); Library.Config.SubTextColor = Color3.new(preset.subtext[1]/255, preset.subtext[2]/255, preset.subtext[3]/255); Library.Config.OpenCloseColor = Color3.new(preset.toggle[1]/255, preset.toggle[2]/255, preset.toggle[3]/255) end
@@ -387,7 +377,7 @@ function Library:CreateWindow(options)
 
     local chatMessages = {}
     local function AddChatBubble(username, message, userid)
-        local isLocal = username == Players.LocalPlayer.Name
+        local isLocal = username == GetSafeName()
         local Bubble = Instance.new("Frame"); Bubble.Parent = ChatScroll; Bubble.BackgroundTransparency = 1; Bubble.Size = UDim2.new(1, 0, 0, 42)
         local Holder = Instance.new("Frame"); Holder.Parent = Bubble; Holder.BackgroundColor3 = Color3.fromRGB(22, 22, 22); Holder.BorderSizePixel = 0; Holder.Size = UDim2.new(0.72, 0, 1, 0); Holder.Position = isLocal and UDim2.new(0.28, 0, 0, 0) or UDim2.new(0, 0, 0, 0)
         local HC = Instance.new("UICorner"); HC.CornerRadius = UDim.new(0, 6); HC.Parent = Holder
@@ -399,17 +389,23 @@ function Library:CreateWindow(options)
         ChatScroll.CanvasPosition = Vector2.new(0, ChatScroll.CanvasSize.Y.Offset)
     end
 
+    local function ClearChatMessages()
+        for _, obj in pairs(ChatScroll:GetChildren()) do if obj:IsA("Frame") then obj:Destroy() end end
+        chatMessages = {}
+        ChatScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    end
+
     local function SendChatMessage()
         local msg = ChatInput.Text; if msg == "" then return end
         local success = Library:SendChatMessage(msg)
-        if success then Library:AddChatMessage(Players.LocalPlayer.Name, msg); AddChatBubble(Players.LocalPlayer.Name, msg, Players.LocalPlayer.UserId); ChatInput.Text = ""
+        if success then Library:AddChatMessage(GetSafeName(), msg); AddChatBubble(GetSafeName(), msg, Players.LocalPlayer.UserId); ChatInput.Text = ""
         else Library:Notify("Chat", "Failed to send", 2) end
     end
 
     ChatSendBtn.MouseButton1Click:Connect(SendChatMessage)
     ChatInput.FocusLost:Connect(function(enterPressed) if enterPressed then SendChatMessage() end end)
 
-    task.spawn(function() while true do if Library.ChatEnabled then local messages = Library:PollChatMessages(); OnlineCount.Text = tostring(#messages) .. " Online"; for _, msg in pairs(messages) do if msg.username ~= Players.LocalPlayer.Name then Library:AddChatMessage(msg.username, msg.message); AddChatBubble(msg.username, msg.message, msg.userid) end end end; task.wait(2) end end)
+    task.spawn(function() while true do if Library.ChatEnabled then local messages = Library:PollChatMessages(); OnlineCount.Text = tostring(#messages) .. " Online"; for _, msg in pairs(messages) do if msg.username ~= GetSafeName() then Library:AddChatMessage(msg.username, msg.message); AddChatBubble(msg.username, msg.message, msg.userid) end end end; task.wait(2) end end)
 
     local dragging, dragInput, dragStart, startPos
     local function updateDrag(input)
@@ -423,7 +419,12 @@ function Library:CreateWindow(options)
     Header.InputChanged:Connect(function(input) if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then dragInput = input end end)
     UserInputService.InputChanged:Connect(function(input) if input == dragInput and dragging then updateDrag(input) end end)
 
-    Close.MouseButton1Click:Connect(function() ScreenGui:Destroy(); NGui:Destroy(); WMGui:Destroy(); TitleBox:Destroy(); TabBox:Destroy(); if ChatBox then ChatBox:Destroy() end; Library.TitleBox = nil; Library.TabBox = nil; Library.MainFrame = nil; Library.ToggleBtn = nil; Library.ChatBox = nil; if Library.KeybindConnections then for _, conn in pairs(Library.KeybindConnections) do pcall(function() conn:Disconnect() end) end end end)
+    Close.MouseButton1Click:Connect(function()
+        if Library.ChatEnabled then Library:RemoveFromChat() end
+        ScreenGui:Destroy(); NGui:Destroy(); WMGui:Destroy(); TitleBox:Destroy(); TabBox:Destroy(); if ChatBox then ChatBox:Destroy() end
+        Library.TitleBox = nil; Library.TabBox = nil; Library.MainFrame = nil; Library.ToggleBtn = nil; Library.ChatBox = nil
+        if Library.KeybindConnections then for _, conn in pairs(Library.KeybindConnections) do pcall(function() conn:Disconnect() end) end end
+    end)
 
     local Window = {Tabs = {}}
 
@@ -463,11 +464,13 @@ function Library:CreateWindow(options)
                 side = side or "Left"; local secIcon = iconAsset or "rbxassetid://6031068812"; local Parent = (side == "Left" and LeftCol or RightCol)
                 local SectionFrame = Instance.new("Frame"); SectionFrame.Parent = Parent; SectionFrame.BackgroundColor3 = Library.Config.SectionColor; SectionFrame.BackgroundTransparency = 0.05; SectionFrame.BorderSizePixel = 0; SectionFrame.Size = UDim2.new(1, 0, 0, 40); SectionFrame.ClipsDescendants = true; SectionFrame.ZIndex = 5
                 local SecCorner = Instance.new("UICorner"); SecCorner.CornerRadius = UDim.new(0, 6); SecCorner.Parent = SectionFrame
-                local SecIcon = Instance.new("ImageLabel"); SecIcon.Parent = SectionFrame; SecIcon.BackgroundTransparency = 1; SecIcon.Position = UDim2.new(0, 8, 0, 10); SecIcon.Size = UDim2.new(0, 14, 0, 14); SecIcon.Image = secIcon; SecIcon.ImageColor3 = Color3.fromRGB(160, 160, 160); SecIcon.ScaleType = Enum.ScaleType.Fit
-                local SecTitle = Instance.new("TextLabel"); SecTitle.Parent = SectionFrame; SecTitle.BackgroundTransparency = 1; SecTitle.Position = UDim2.new(0, 28, 0, 10); SecTitle.Size = UDim2.new(1, -40, 0, 18); SecTitle.Font = Enum.Font.GothamBold; SecTitle.Text = secName; SecTitle.TextColor3 = Color3.fromRGB(200, 200, 200); SecTitle.TextSize = 12
-                local Container = Instance.new("Frame"); Container.Parent = SectionFrame; Container.BackgroundTransparency = 1; Container.Position = UDim2.new(0, 12, 0, 38); Container.Size = UDim2.new(1, -24, 0, 0)
+                -- Icon in left corner
+                local SecIcon = Instance.new("ImageLabel"); SecIcon.Parent = SectionFrame; SecIcon.BackgroundTransparency = 1; SecIcon.Position = UDim2.new(0, 6, 0, 10); SecIcon.Size = UDim2.new(0, 14, 0, 14); SecIcon.Image = secIcon; SecIcon.ImageColor3 = Color3.fromRGB(160, 160, 160); SecIcon.ScaleType = Enum.ScaleType.Fit
+                -- Title closer to icon
+                local SecTitle = Instance.new("TextLabel"); SecTitle.Parent = SectionFrame; SecTitle.BackgroundTransparency = 1; SecTitle.Position = UDim2.new(0, 24, 0, 10); SecTitle.Size = UDim2.new(1, -36, 0, 18); SecTitle.Font = Enum.Font.GothamBold; SecTitle.Text = secName; SecTitle.TextColor3 = Color3.fromRGB(200, 200, 200); SecTitle.TextSize = 12; SecTitle.TextXAlignment = Enum.TextXAlignment.Left
+                local Container = Instance.new("Frame"); Container.Parent = SectionFrame; Container.BackgroundTransparency = 1; Container.Position = UDim2.new(0, 10, 0, 38); Container.Size = UDim2.new(1, -20, 0, 0)
                 local SecLayout = Instance.new("UIListLayout"); SecLayout.Parent = Container; SecLayout.SortOrder = Enum.SortOrder.LayoutOrder; SecLayout.Padding = UDim.new(0, 7)
-                SecLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() Container.Size = UDim2.new(1, -24, 0, SecLayout.AbsoluteContentSize.Y); SectionFrame.Size = UDim2.new(1, 0, 0, SecLayout.AbsoluteContentSize.Y + 50) end)
+                SecLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() Container.Size = UDim2.new(1, -20, 0, SecLayout.AbsoluteContentSize.Y); SectionFrame.Size = UDim2.new(1, 0, 0, SecLayout.AbsoluteContentSize.Y + 50) end)
                 local Section = {Container = Container}
 
                 function Section:CreateToggle(toggleName, default, options, callback)
@@ -501,10 +504,12 @@ function Library:CreateWindow(options)
                 function Section:CreateDropdown(dropName, options, config, callback)
                     local flag = config and (config.Flag or config.flag)
                     local DropContainer = Instance.new("Frame"); DropContainer.Parent = self.Container; DropContainer.BackgroundTransparency = 1; DropContainer.Size = UDim2.new(1, 0, 0, 42)
-                    local Label = Instance.new("TextLabel"); Label.Parent = DropContainer; Label.BackgroundTransparency = 1; Label.Size = UDim2.new(1, 0, 0, 14); Label.Font = Enum.Font.GothamMedium; Label.Text = dropName; Label.TextColor3 = Library.Config.SubTextColor; Label.TextSize = 12
+                    local Label = Instance.new("TextLabel"); Label.Parent = DropContainer; Label.BackgroundTransparency = 1; Label.Size = UDim2.new(1, 0, 0, 14); Label.Font = Enum.Font.GothamMedium; Label.Text = dropName; Label.TextColor3 = Library.Config.SubTextColor; Label.TextSize = 12; Label.TextXAlignment = Enum.TextXAlignment.Left
                     local MainBtn = Instance.new("TextButton"); MainBtn.Parent = DropContainer; MainBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20); MainBtn.Position = UDim2.new(0, 0, 0, 18); MainBtn.Size = UDim2.new(1, 0, 0, 24); MainBtn.AutoButtonColor = false; MainBtn.Text = ""
                     local MCorner = Instance.new("UICorner"); MCorner.CornerRadius = UDim.new(0, 3); MCorner.Parent = MainBtn
-                    local SelectedText = Instance.new("TextLabel"); SelectedText.Parent = MainBtn; SelectedText.Position = UDim2.new(0, 10, 0, 0); SelectedText.Size = UDim2.new(1, -20, 1, 0); SelectedText.BackgroundTransparency = 1; SelectedText.Text = "..."; SelectedText.TextColor3 = Library.Config.SubTextColor; SelectedText.TextSize = 12; SelectedText.Font = Enum.Font.GothamMedium
+                    local SelectedText = Instance.new("TextLabel"); SelectedText.Parent = MainBtn; SelectedText.Position = UDim2.new(0, 8, 0, 0); SelectedText.Size = UDim2.new(1, -28, 1, 0); SelectedText.BackgroundTransparency = 1; SelectedText.Text = "..."; SelectedText.TextColor3 = Library.Config.SubTextColor; SelectedText.TextSize = 12; SelectedText.Font = Enum.Font.GothamMedium; SelectedText.TextXAlignment = Enum.TextXAlignment.Left
+                    -- Clear button on dropdown button
+                    local ClearDropdownBtn = Instance.new("TextButton"); ClearDropdownBtn.Parent = MainBtn; ClearDropdownBtn.BackgroundTransparency = 1; ClearDropdownBtn.Position = UDim2.new(1, -22, 0, 0); ClearDropdownBtn.Size = UDim2.new(0, 18, 1, 0); ClearDropdownBtn.Font = Enum.Font.GothamBold; ClearDropdownBtn.Text = "x"; ClearDropdownBtn.TextColor3 = Color3.fromRGB(140, 140, 140); ClearDropdownBtn.TextSize = 10; ClearDropdownBtn.ZIndex = 5
                     local DropFrame = Instance.new("Frame"); DropFrame.Parent = Library.ScreenGui; DropFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 18); DropFrame.BorderSizePixel = 0; DropFrame.Visible = false; DropFrame.ZIndex = 200; DropFrame.ClipsDescendants = true
                     local DFCorner = Instance.new("UICorner"); DFCorner.CornerRadius = UDim.new(0, 5); DFCorner.Parent = DropFrame; local DFStroke = Instance.new("UIStroke"); DFStroke.Parent = DropFrame; DFStroke.Color = Color3.fromRGB(40, 40, 40); DFStroke.Thickness = 1
                     local SearchFrame = Instance.new("Frame"); SearchFrame.Parent = DropFrame; SearchFrame.BackgroundColor3 = Color3.fromRGB(14, 14, 14); SearchFrame.Size = UDim2.new(1, -8, 0, 22); SearchFrame.Position = UDim2.new(0, 4, 0, 4); SearchFrame.BorderSizePixel = 0; local SFCorner = Instance.new("UICorner"); SFCorner.CornerRadius = UDim.new(0, 4); SFCorner.Parent = SearchFrame
@@ -518,9 +523,15 @@ function Library:CreateWindow(options)
                         else local tw = Library:Tween(DropFrame, 0.2, {Size = UDim2.new(0, MainBtn.AbsoluteSize.X, 0, 0)}); tw.Completed:Wait(); DropFrame.Visible = false end
                     end
                     MainBtn.MouseButton1Click:Connect(ToggleDropdown)
+                    ClearDropdownBtn.MouseButton1Click:Connect(function()
+                        SelectedText.Text = "..."
+                        if flag then Library.Flags[flag] = nil end
+                        callback(nil)
+                        SearchInput.Text = ""
+                    end)
                     local function Set(opt) SelectedText.Text = tostring(opt); if flag then Library.Flags[flag] = opt end; callback(opt) end
                     if flag then Library.Callbacks[flag] = Set end
-                    local function Refresh(newList) for _, v in pairs(OptionBtns) do v.btn:Destroy() end; table.clear(OptionBtns); options = newList; for _, opt in pairs(options) do local btn = Instance.new("TextButton"); btn.Parent = Scroll; btn.Size = UDim2.new(1, 0, 0, 21); btn.BackgroundTransparency = 1; btn.Text = "   " .. tostring(opt); btn.TextColor3 = Color3.fromRGB(160, 160, 160); btn.TextSize = 11; btn.Font = Enum.Font.GothamMedium; btn.TextXAlignment = Enum.TextXAlignment.Left; btn.ZIndex = 201; btn.MouseButton1Click:Connect(function() Set(opt); ToggleDropdown() end); table.insert(OptionBtns, {btn = btn, text = tostring(opt)}) end; Scroll.CanvasSize = UDim2.new(0, 0, 0, #options * 23) end
+                    local function Refresh(newList) for _, v in pairs(OptionBtns) do v.btn:Destroy() end; table.clear(OptionBtns); options = newList; for _, opt in pairs(options) do local btn = Instance.new("TextButton"); btn.Parent = Scroll; btn.Size = UDim2.new(1, 0, 0, 21); btn.BackgroundTransparency = 1; btn.Text = "  " .. tostring(opt); btn.TextColor3 = Color3.fromRGB(160, 160, 160); btn.TextSize = 11; btn.Font = Enum.Font.GothamMedium; btn.TextXAlignment = Enum.TextXAlignment.Left; btn.ZIndex = 201; btn.MouseButton1Click:Connect(function() Set(opt); ToggleDropdown() end); table.insert(OptionBtns, {btn = btn, text = tostring(opt)}) end; Scroll.CanvasSize = UDim2.new(0, 0, 0, #options * 23) end
                     Refresh(options)
                     SearchInput:GetPropertyChangedSignal("Text"):Connect(function() local text = SearchInput.Text:lower(); local visibleCount = 0; for _, data in ipairs(OptionBtns) do local visible = text == "" or data.text:lower():find(text); data.btn.Visible = visible; if visible then visibleCount += 1 end end; Scroll.CanvasSize = UDim2.new(0, 0, 0, visibleCount * 23); if Open then local targetHeight = math.clamp(visibleCount * 23 + 32, 36, 180); Library:Tween(DropFrame, 0.15, {Size = UDim2.new(0, MainBtn.AbsoluteSize.X, 0, targetHeight)}) end end)
                     RunService.RenderStepped:Connect(function() if Open then DropFrame.Position = UDim2.new(0, MainBtn.AbsolutePosition.X, 0, MainBtn.AbsolutePosition.Y + MainBtn.AbsoluteSize.Y + 3) end end)
@@ -583,8 +594,8 @@ function Library:CreateWindow(options)
     local CardCorner = Instance.new("UICorner"); CardCorner.CornerRadius = UDim.new(0, 8); CardCorner.Parent = Card; local Glow = Instance.new("UIStroke"); Glow.Parent = Card; Glow.Color = Color3.fromRGB(40, 40, 40); Glow.Thickness = 1
     local PFP = Instance.new("ImageLabel"); PFP.Parent = Card; PFP.BackgroundTransparency = 1; PFP.Position = UDim2.new(0, 14, 0.5, -28); PFP.Size = UDim2.new(0, 56, 0, 56); PFP.Image = Players:GetUserThumbnailAsync(Players.LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
     local PFPCorner = Instance.new("UICorner"); PFPCorner.CornerRadius = UDim.new(1, 0); PFPCorner.Parent = PFP; local PFPStroke = Instance.new("UIStroke"); PFPStroke.Parent = PFP; PFPStroke.Color = Color3.fromRGB(80, 80, 80); PFPStroke.Thickness = 1.5
-    local Name = Instance.new("TextLabel"); Name.Parent = Card; Name.BackgroundTransparency = 1; Name.Position = UDim2.new(0, 84, 0, 16); Name.Size = UDim2.new(1, -90, 0, 20); Name.Font = Enum.Font.GothamBold; Name.Text = Players.LocalPlayer.Name; Name.TextColor3 = Color3.fromRGB(240, 240, 240); Name.TextSize = 16
-    local Display = Instance.new("TextLabel"); Display.Parent = Card; Display.BackgroundTransparency = 1; Display.Position = UDim2.new(0, 84, 0, 38); Display.Size = UDim2.new(1, -90, 0, 16); Display.Font = Enum.Font.GothamMedium; Display.Text = "@"..Players.LocalPlayer.DisplayName; Display.TextColor3 = Color3.fromRGB(140, 140, 140); Display.TextSize = 12
+    local Name = Instance.new("TextLabel"); Name.Parent = Card; Name.BackgroundTransparency = 1; Name.Position = UDim2.new(0, 84, 0, 16); Name.Size = UDim2.new(1, -90, 0, 20); Name.Font = Enum.Font.GothamBold; Name.Text = GetSafeName(); Name.TextColor3 = Color3.fromRGB(240, 240, 240); Name.TextSize = 16
+    local Display = Instance.new("TextLabel"); Display.Parent = Card; Display.BackgroundTransparency = 1; Display.Position = UDim2.new(0, 84, 0, 38); Display.Size = UDim2.new(1, -90, 0, 16); Display.Font = Enum.Font.GothamMedium; Display.Text = "@"..GetSafeDisplayName(); Display.TextColor3 = Color3.fromRGB(140, 140, 140); Display.TextSize = 12
     local Badge = Instance.new("TextLabel"); Badge.Parent = Card; Badge.BackgroundColor3 = Color3.fromRGB(28, 28, 28); Badge.Position = UDim2.new(0, 84, 0, 60); Badge.Size = UDim2.new(0, 60, 0, 18); Badge.Font = Enum.Font.GothamBold; Badge.Text = Library.IsPremium and "PRO" or "FREE"; Badge.TextColor3 = Library.IsPremium and Color3.fromRGB(255, 215, 0) or Color3.fromRGB(180, 180, 180); Badge.TextSize = 10; local BadgeCorner = Instance.new("UICorner"); BadgeCorner.CornerRadius = UDim.new(0, 4); BadgeCorner.Parent = Badge
     PlayerSec.Container.Size = UDim2.new(1, -24, 0, PlayerSec.Container.Size.Y.Offset + 90)
 
@@ -620,30 +631,50 @@ function Library:CreateWindow(options)
 
     -- SETTINGS
     local SettingsTab = Window:CreateTab("Settings", 999, "rbxassetid://101463883805422"); local SettingsMain = SettingsTab:CreateSubTab("Main")
-    local ConfigsSec = SettingsMain:CreateSection("Configs", "Left"); local ThemeSec = SettingsMain:CreateSection("Theme", "Right"); local MenuSec = SettingsMain:CreateSection("Menu", "Left")
+    local ConfigsSec = SettingsMain:CreateSection("Configs", "Left"); local ThemeSec = SettingsMain:CreateSection("Theme", "Right"); local StreamerSec = SettingsMain:CreateSection("Streamer Mode", "Left"); local MenuSec = SettingsMain:CreateSection("Menu", "Right")
+    
     local ConfigNameInput = ConfigsSec:CreateTextbox("Config Name", "Enter name...", {}, function() end)
-    local configList = Library:GetConfigs(); local ConfigDrop = ConfigsSec:CreateDropdown("Saved Configs", #configList > 0 and configList or {"None"}, {}, function(selected) if selected ~= "None" then ConfigNameInput.Set(selected) end end)
+    local configList = Library:GetConfigs(); local ConfigDrop = ConfigsSec:CreateDropdown("Saved Configs", #configList > 0 and configList or {"None"}, {}, function(selected) if selected ~= "None" and selected ~= nil then ConfigNameInput.Set(selected) end end)
     local function RefreshConfigDropdown() local list = Library:GetConfigs(); ConfigDrop.Refresh(#list > 0 and list or {"None"}) end
     ConfigsSec:CreateButton("Save Config", function() local name = Library.Flags["config_name_input"] or "default"; Library:SaveConfig(name); RefreshConfigDropdown() end)
     ConfigsSec:CreateButton("Load Config", function() local name = Library.Flags["config_name_input"] or ""; if name ~= "" then Library:LoadConfig(name) end end)
+    
     local presetNames = {}; for name, _ in pairs(ThemePresets) do table.insert(presetNames, name) end
-    local ThemePresetDrop = ThemeSec:CreateDropdown("Presets", presetNames, {}, function(selected) Library:ApplyThemePreset(selected); Toggle.BackgroundColor3 = Library.Config.OpenCloseColor; TogS.Color = Library.Config.OpenCloseColor; Main.BackgroundColor3 = Library.Config.BackgroundColor end)
+    local ThemePresetDrop = ThemeSec:CreateDropdown("Presets", presetNames, {}, function(selected) if selected then Library:ApplyThemePreset(selected); Toggle.BackgroundColor3 = Library.Config.OpenCloseColor; TogS.Color = Library.Config.OpenCloseColor; Main.BackgroundColor3 = Library.Config.BackgroundColor end end)
     local ThemeToggle = ThemeSec:CreateToggle("Image BG", false, {Flag = "use_theme"}, function(val) Library.Config.UseThemeImage = val; ThemeBg.Visible = val end)
     local ThemeInput = ThemeSec:CreateTextbox("Asset ID", "123456789", {Flag = "theme_image"}, function(val) if Library.Config.UseThemeImage and val ~= "" then ThemeBg.Image = "rbxassetid://" .. val; ThemeBg.Visible = true end end)
-    local themeList = Library.SavedThemes; local ThemeDrop = ThemeSec:CreateDropdown("Saved Themes", #themeList > 0 and themeList or {"None"}, {}, function(selected) if selected ~= "None" then Library:LoadTheme(selected) end end)
+    local themeList = Library.SavedThemes; local ThemeDrop = ThemeSec:CreateDropdown("Saved Themes", #themeList > 0 and themeList or {"None"}, {}, function(selected) if selected ~= "None" and selected ~= nil then Library:LoadTheme(selected) end end)
     ThemeSec:CreateButton("Save Theme", function() Library:SaveTheme("theme_" .. os.time()); local newList = Library.SavedThemes; ThemeDrop.Refresh(#newList > 0 and newList or {"None"}) end)
     ThemeSec:CreateButton("Apply Theme", function() local selected = Library.Flags["theme_dropdown"] or ""; if selected ~= "" and selected ~= "None" then Library:LoadTheme(selected) end end)
     local ToggleColorPicker = ThemeSec:CreateColorPicker("Toggle Color", Library.Config.OpenCloseColor, {Flag = "toggle_color"}, function(color) Library.Config.OpenCloseColor = color; Toggle.BackgroundColor3 = color; TogS.Color = color end)
-    local ChatToggle = MenuSec:CreateToggle("Global Chat", false, {Flag = "global_chat"}, function(val) Library.ChatEnabled = val; if ChatBox then ChatBox.Visible = val; if val then local mainAbs = Main.AbsolutePosition; ChatBox.Position = UDim2.new(0, mainAbs.X - ChatBox.AbsoluteSize.X - 10, 0, mainAbs.Y + 38) end end end)
+
+    -- Streamer Mode
+    local StreamerToggle = StreamerSec:CreateToggle("Streamer Mode", false, {Flag = "streamer_mode"}, function(val) Library.StreamerMode = val end)
+    local CustomUserInput = StreamerSec:CreateTextbox("Custom Username", "HiddenName", {Flag = "custom_username"}, function(val) Library.CustomUsername = val end)
+    local CustomDisplayInput = StreamerSec:CreateTextbox("Custom Display", "HiddenDisplay", {Flag = "custom_display"}, function(val) Library.CustomDisplayName = val end)
+    
+    local ChatToggle = MenuSec:CreateToggle("Global Chat", false, {Flag = "global_chat"}, function(val)
+        Library.ChatEnabled = val
+        if ChatBox then
+            ChatBox.Visible = val
+            if val then
+                local mainAbs = Main.AbsolutePosition
+                ChatBox.Position = UDim2.new(0, mainAbs.X - ChatBox.AbsoluteSize.X - 10, 0, mainAbs.Y + 38)
+            else
+                Library:RemoveFromChat()
+                ClearChatMessages()
+            end
+        end
+    end)
     MenuSec:CreateToggle("Watermark", true, {Flag = "show_watermark"}, function(val) Library.WatermarkVisible = val; WMBox.Visible = val end)
-    MenuSec:CreateButton("Unload UI", function() ScreenGui:Destroy(); NGui:Destroy(); WMGui:Destroy(); TitleBox:Destroy(); TabBox:Destroy(); if ChatBox then ChatBox:Destroy() end; Library.TitleBox = nil; Library.TabBox = nil; Library.MainFrame = nil; Library.ToggleBtn = nil; Library.ChatBox = nil; if Library.KeybindConnections then for _, conn in pairs(Library.KeybindConnections) do pcall(function() conn:Disconnect() end) end end end)
+    MenuSec:CreateButton("Unload UI", function() if Library.ChatEnabled then Library:RemoveFromChat() end; ScreenGui:Destroy(); NGui:Destroy(); WMGui:Destroy(); TitleBox:Destroy(); TabBox:Destroy(); if ChatBox then ChatBox:Destroy() end; Library.TitleBox = nil; Library.TabBox = nil; Library.MainFrame = nil; Library.ToggleBtn = nil; Library.ChatBox = nil; if Library.KeybindConnections then for _, conn in pairs(Library.KeybindConnections) do pcall(function() conn:Disconnect() end) end end end)
     MenuSec:CreateButton("Rejoin", function() game:GetService("TeleportService"):Teleport(game.PlaceId, Players.LocalPlayer) end)
     Library:SetKeybind(Enum.KeyCode.RightShift, function() if Library.MainFrame then SetUIVisibility(not Library.MainFrame.Visible) end end)
 
     DashTab.Page.Visible = true; DashTab.Button.BackgroundTransparency = 0; DashTab.Button.BackgroundColor3 = Color3.fromRGB(28, 28, 28); DashTab.Icon.ImageColor3 = Color3.fromRGB(240, 240, 240); DashTab.Icon.Position = UDim2.new(0, 8, 0.5, -10); DashTab.Label.Visible = true; DashTab.Button.Size = UDim2.new(0, math.max(70, 32 + GetTextWidth("Dashboard", 13, Enum.Font.GothamBold) + 12), 0, 32)
     Terminal.Visible = true; Content.Size = UDim2.new(1, -24, 1, -150)
     for _, st in pairs(DashTab.SubTabs) do st.Button.Visible = true end; if DashTab.SubTabs[1] then DashTab.SubTabs[1].Page.Visible = true; DashTab.CurrentSubTab = DashTab.SubTabs[1] end
-    AddTerminalLog("Amira UI loaded"); AddTerminalLog("Welcome, " .. Players.LocalPlayer.Name); AddTerminalLog("Place: " .. game.PlaceId)
+    AddTerminalLog("Amira UI loaded"); AddTerminalLog("Welcome, " .. GetSafeName()); AddTerminalLog("Place: " .. game.PlaceId)
     task.wait(0.1); local mainAbs = Main.AbsolutePosition; local mainSize = Main.AbsoluteSize
     TitleBox.Position = UDim2.new(0, mainAbs.X + 8, 0, mainAbs.Y + 4)
     TabBox.Position = UDim2.new(0, mainAbs.X + 120, 0, mainAbs.Y + 4)
